@@ -14,7 +14,7 @@ import oql_parser, {MUTCommand} from "../../lib/oql/oql-parser";
 import memoize from "memoize-weak-decorator";
 import AppConfig from 'appConfig';
 import {gsUploadByGet} from "../../api/gsuploadwindow";
-import {OQLQuery, OQLGenesetQuery} from "../../lib/oql/oql-parser";
+import {OQLQuery} from "../../lib/oql/oql-parser";
 import {ComponentGetsStoreContext} from "../../lib/ContextUtils";
 import URL from 'url';
 import {buildCBioPortalUrl, BuildUrlParams, getHost, openStudySummaryFormSubmit} from "../../api/urls";
@@ -35,6 +35,7 @@ import VirtualCohorts, {LocalStorageVirtualCohort} from "../../lib/VirtualCohort
 import getOverlappingStudies from "../../lib/getOverlappingStudies";
 import MolecularProfilesInStudyCache from "../../cache/MolecularProfilesInStudyCache";
 import {CacheData} from "../../lib/LazyMobXCache";
+import { getHierarchyData } from "shared/lib/StoreUtils";
 
 // interface for communicating
 export type CancerStudyQueryUrlParams = {
@@ -100,6 +101,8 @@ export const QueryParamsKeys:(keyof CancerStudyQueryParams)[] = [
 	'geneQuery',
 	'genesetQuery',
 ];
+
+type GenesetId = string;
 
 // mobx observable
 export class QueryStore
@@ -430,12 +433,15 @@ export class QueryStore
 	@observable showMutSigPopup = false;
 	@observable showGisticPopup = false;
 	@observable showGenesetsHierarchyPopup = false;
+	@observable showGenesetsVolcanoPopup = false;
 	@observable.ref searchTextPresets:ReadonlyArray<string> = AppConfig.skinExampleStudyQueries;
 	@observable priorityStudies = AppConfig.priorityStudies;
 	@observable showSelectedStudiesOnly:boolean = false;
 	@observable.shallow selectedCancerTypeIds:string[] = [];
 	@observable clickAgainToDeselectSingle:boolean = true;
 	@observable searchExampleMessage = "";
+	@observable volcanoPlotSelectedPercentile: {label: string, value: string} = {label: '75%', value: '75'};
+	
 
 	@observable private _maxTreeDepth:number = AppConfig.maxTreeDepth;
 	@computed get maxTreeDepth()
@@ -597,22 +603,18 @@ export class QueryStore
 	);
 	
 	private invokeGenesetsLater = debounceAsync(
-	        async (genesetIds:string[]):Promise<{found: Geneset[], invalid: string[]}> =>
-	        {
-	            const getGenesetResults = async () => {
-	                const found = await internalClient.fetchGenesetsUsingPOST({genesetIds: genesetIds});
-	                const invalid = _.difference(genesetIds, found.map(geneset => geneset.genesetId));
-	                return {found, invalid};
-	            };
-	            
-	            const [genesetResults] = await Promise.all([getGenesetResults()]);
-	            return {
-	                found: [...genesetResults.found],
-	                invalid: [...genesetResults.invalid]
-	            };
-	        },
-	        500
-	    );
+			async (genesetIds:string[]):Promise<{found: Geneset[], invalid: string[]}> =>
+			{
+				if (genesetIds.length > 0) {
+					const found = await internalClient.fetchGenesetsUsingPOST({genesetIds: genesetIds});
+					const invalid = _.difference(genesetIds, found.map(geneset => geneset.genesetId));
+					return {found, invalid};
+				} else {
+					return Promise.resolve({found:[], invalid:[]});
+				}
+			},
+			500
+	);
 
 	@memoize
 	async getGeneSuggestions(alias:string):Promise<GeneReplacement>
@@ -1064,14 +1066,13 @@ export class QueryStore
 	}
 	
 	// GENE SETS
-	@computed get genesetIdsOQL():{ query: OQLGenesetQuery, error?: { start: number, end: number, message: string } }
+	@computed get genesetIdsQuery():{ query: GenesetId[], error?: { start: number, end: number, message: string } }
     {
         try
         {
-            const queriedGenesets: string[] = this.genesetQuery ? this.genesetQuery.split(/[ \n]+/) : [];
-            const result = queriedGenesets.map(geneset => ({geneset: geneset, alterations:false as false}));
+            const queriedGenesets: GenesetId[] = this.genesetQuery ? this.genesetQuery.split(/[ \n]+/) : [];
             return {
-                query: result,
+                query: queriedGenesets,
                 error: undefined
             };
         }
@@ -1099,16 +1100,65 @@ export class QueryStore
         }
     }
     
-    @computed get genesetIds():string[]
+    @computed get genesetIds():GenesetId[]
     {
-            try
-            {
-                return this.genesetIdsOQL.query.map(line => line.geneset).filter(geneset => geneset && geneset !== 'DATATYPES');
+        return this.genesetIdsQuery.query;
+    }
+    
+    readonly volcanoPlotTableData = remoteData<Geneset[]>({
+        invoke: async()=>{
+            const tableData: Geneset[] = [];
+            const hierarchyData = await getHierarchyData(
+                    this.getFilteredProfiles("GENESET_SCORE")[0].molecularProfileId, 
+                    Number(this.volcanoPlotSelectedPercentile.value),
+                    0, 1, this.defaultSelectedSampleListId);
+            for (const node of hierarchyData) {
+                if (_.has(node, 'genesets')) {
+                    for (const geneset of node.genesets) {
+                        tableData.push({
+                            genesetId: geneset.genesetId,
+                            name: geneset.genesetId,
+                            description : geneset.description,
+                            representativeScore : geneset.representativeScore,
+                            representativePvalue : geneset.representativePvalue,
+                            refLink : geneset.refLink,
+                        });
+                    }
+                }
             }
-            catch (e)
-            {
-                return [];
-            }
+            return tableData;
+        }
+    });
+    
+    @computed get maxYVolcanoPlot(): number|undefined
+    {
+        if (this.volcanoPlotTableData.result) {
+            let genesetWithMaxY = _.maxBy(this.volcanoPlotTableData.result!);
+            return genesetWithMaxY!.representativePvalue;
+        } else {
+            return undefined;
+            //throw new Error("Function called before volcanoPlotTableData was called.");
+        }
+    }
+    
+    @observable map_genesets_selected_volcano = new ObservableMap<boolean>();
+    
+    @computed get volcanoPlotGraphData(): {x: number, y: number, fill: string}[]|undefined
+    {
+        let graphData: {x: number, y: number, fill: string}[]|undefined = undefined;
+        if (this.volcanoPlotTableData.result) {
+            const tableData = this.volcanoPlotTableData.result!;
+            graphData = tableData.map(({representativeScore, representativePvalue, name}) => {
+                    const xValue = representativeScore;
+                    const yValue = -(Math.log(representativePvalue)/Math.log(10));
+                    const fillColor = this.map_genesets_selected_volcano.get(name) ? "tomato" : "3786C2";
+                    return {x: xValue, y: yValue, fill: fillColor};
+            });
+        } else {
+            return undefined;
+            //throw new Error("Function called before volcanoPlotTableData was called.");
+        }
+        return graphData;
     }
 
 	// SUBMIT
@@ -1119,7 +1169,7 @@ export class QueryStore
 			!this.submitError &&
 			(this.genes.isComplete || this.genesets.isComplete) &&
 			this.asyncUrlParams.isComplete
-		) || (!!this.oql.error || !!this.genesetIdsOQL.error); // to make "Please click 'Submit' to see location of error." possible
+		) || (!!this.oql.error || !!this.genesetIdsQuery.error); // to make "Please click 'Submit' to see location of error." possible
 	}
 
 	@computed get summaryEnabled() {
@@ -1273,6 +1323,7 @@ export class QueryStore
 		if ((_window as any).serverVars) {
 			// Populate OQL
 			this.geneQuery = normalizeQuery((_window as any).serverVars.theQuery);
+			this.genesetQuery = normalizeQuery((_window as any).serverVars.genesetIds);
 			const dataPriority = (_window as any).serverVars.dataPriority;
 			if (typeof dataPriority !== "undefined") {
 				this.dataTypePriorityCode = (dataPriority + '') as '0'|'1'|'2';
@@ -1428,7 +1479,14 @@ export class QueryStore
 		this.geneQuery = normalizeQuery([this.geneQuery, ...toAppend].join(' '));
 	}
 	
-	@action applyGenesetsSelection(map_geneset_selected:ObservableMap<boolean>)
+	@action addToGenesetSelection(map_geneset_selected:ObservableMap<boolean>)
+    {
+	    let [toAppend, toRemove] = _.partition(map_geneset_selected.keys(), geneSet => map_geneset_selected.get(geneSet));
+	    const genesetQuery = _.union(toAppend, this.genesetIds).join(' ');
+        this.genesetQuery = normalizeQuery(genesetQuery);
+    }
+	
+	@action applyGenesetSelection(map_geneset_selected:ObservableMap<boolean>)
     {
         const [toAppend, toRemove] = _.partition(map_geneset_selected.keys(), geneSet => map_geneset_selected.get(geneSet));
         let genesetQuery = this.genesetQuery;
@@ -1526,6 +1584,7 @@ export class QueryStore
 
 	@cached get molecularProfilesInStudyCache() {
 		return new MolecularProfilesInStudyCache();
+		
 	}
 }
 

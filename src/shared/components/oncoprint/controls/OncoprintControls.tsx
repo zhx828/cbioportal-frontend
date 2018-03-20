@@ -21,6 +21,7 @@ import FadeInteraction from "shared/components/fadeInteraction/FadeInteraction";
 import './styles.scss';
 import {SpecialAttribute} from "../../../cache/ClinicalDataCache";
 const CheckedSelect = require("react-select-checked").CheckedSelect;
+import classNames from "classnames";
 
 export interface IOncoprintControlsHandlers {
     onSelectColumnType?:(type:"sample"|"patient")=>void,
@@ -84,7 +85,7 @@ export interface IOncoprintControlsState {
     selectedHeatmapProfile?:string;
     heatmapIsDynamicallyQueried:boolean;
     heatmapGeneInputValue?: string;
-    clusterHeatmapButtonDisabled?:boolean;
+    clusterHeatmapButtonActive?:boolean;
     hideClusterHeatmapButton?:boolean;
     hideHeatmapMenu?:boolean;
 
@@ -454,10 +455,10 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
 
                         {!this.props.state.hideClusterHeatmapButton &&
                             (<button
-                                 className="btn btn-sm btn-default"
+                                data-test="clusterHeatmapBtn"
+                                 className={classNames("btn", "btn-sm", "btn-default", {active:this.props.state.clusterHeatmapButtonActive})}
                                  name={EVENT_KEY.sortByHeatmapClustering}
                                  onClick={this.onButtonClick}
-                                 disabled={this.props.state.clusterHeatmapButtonDisabled}
                              >Cluster Heatmap</button>)
                         }
                     </div>
@@ -476,10 +477,11 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
     private getSortMenu() {
         return (
             <CustomDropdown bsStyle="default" title="Sort" id="sortDropdown">
-                <div>
+                <div className="oncoprint__controls__sort_menu">
 
                         <div className="radio"><label>
                             <input
+                                data-test="sortByData"
                                 type="radio"
                                 name="sortBy"
                                 value={EVENT_KEY.sortByData}
@@ -530,6 +532,7 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
                                     && !this.props.state.heatmapProfilesPromise.result!.length))
                         && (<div className="radio"><label>
                             <input
+                                data-test="sortByHeatmapClustering"
                                 type="radio"
                                 name="sortBy"
                                 checked={this.props.state.sortMode.type === "heatmap"}
@@ -544,7 +547,7 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
     private getMutationColorMenu() {
         return (
             <CustomDropdown bsStyle="default" title="Mutation Color" id="mutationColorDropdown">
-                <div>
+                <div className="oncoprint__controls__mutation_color_menu">
                     <form action="" style={{marginBottom: "0"}}>
                         <div className="checkbox"><label>
                             <input
@@ -562,14 +565,6 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
                                 onClick={this.onInputClick}
                             /> Putative drivers based on:
                         </label>
-                            <DefaultTooltip
-                                overlay={<span>For missense, inframe, and truncating mutations.</span>}
-                            >
-                                <i
-                                    className="fa fa-md fa-info-circle"
-                                    style={{cursor:"pointer", paddingTop:"0.2em"}}
-                                />
-                            </DefaultTooltip>
                         </div>
                         <div style={{marginLeft: "20px"}}>
                             <div className="checkbox"><label>
@@ -578,6 +573,7 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
                                     value={EVENT_KEY.annotateOncoKb}
                                     checked={this.props.state.annotateDriversOncoKb}
                                     onClick={this.onInputClick}
+                                    data-test="annotateOncoKb"
                                 />
                                 <DefaultTooltip
                                     overlay={<span>Oncogenicity from OncoKB</span>}
@@ -596,6 +592,7 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
                                     value={EVENT_KEY.annotateHotspots}
                                     checked={this.props.state.annotateDriversHotspots}
                                     onClick={this.onInputClick}
+                                    data-test="annotateHotspots"
                                 /> Hotspots
                                 <DefaultTooltip
                                     overlay={<div style={{maxWidth:"400px"}}>Identified as a recurrent hotspot (statistically significant) in a population-scale cohort of tumor samples of various cancer types using methodology based in part on <a href="http://www.ncbi.nlm.nih.gov/pubmed/26619011" target="_blank">Chang et al., Nat Biotechnol, 2016.</a>
@@ -616,6 +613,7 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
                                         value={EVENT_KEY.annotateCBioPortal}
                                         checked={this.props.state.annotateDriversCBioPortal}
                                         onClick={this.onInputClick}
+                                        data-test="annotateCBioPortalCount"
                                     />
                                     cBioPortal  >=
                                 </label>
@@ -636,6 +634,7 @@ export default class OncoprintControls extends React.Component<IOncoprintControl
                                         value={EVENT_KEY.annotateCOSMIC}
                                         checked={this.props.state.annotateDriversCOSMIC}
                                         onClick={this.onInputClick}
+                                        data-test="annotateCOSMICCount"
                                     />
                                     COSMIC  >=
                                 </label>

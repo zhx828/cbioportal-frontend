@@ -310,6 +310,18 @@ describe('single study query', function() {
             assert(text.search('3.5%' > -1));
 
         });
+
+        it('should show lollipop for MUC2', function() {
+            browser.url(`${CBIOPORTAL_URL}/index.do?cancer_study_id=cellline_nci60&Z_SCORE_THRESHOLD=2&RPPA_SCORE_THRESHOLD=2&data_priority=0&case_set_id=cellline_nci60_cnaseq&gene_list=MUC2&geneset_list=+&tab_index=tab_visualize&Action=Submit&genetic_profile_ids_PROFILE_MUTATION_EXTENDED=cellline_nci60_mutations&genetic_profile_ids_PROFILE_COPY_NUMBER_ALTERATION=cellline_nci60_CNA`);
+            browser.setViewportSize({ height:1400, width:1000 });
+
+            //  wait for mutations tab
+            $('#mutation-result-tab').waitForExist(30000);
+            $('#mutation-result-tab').click();
+
+            // check lollipop plot appears
+            $('[data-test="LollipopPlot"]').waitForExist(60000);
+        });
     });
 
     describe('enrichments', function() {
@@ -494,6 +506,114 @@ describe('oncoprint', function() {
                 7,
                 "gene tracks and existing clinical tracks should exist"
             )
+        });
+    });
+    describe("heatmap clustering", ()=>{
+        describe("'Cluster Heatmap' button", ()=>{
+            // THESE TESTs ARE RUN IN SERIAL, cannot be run alone
+            var clusterButtonSelector;
+            var heatmapButtonSelector;
+            var heatmapMenuSelector;
+
+            var sortButtonSelector;
+            var sortMenuSelector;
+            var sortMenuDataRadioSelector;
+            var sortMenuHeatmapRadioSelector;
+
+            before(()=>{
+                heatmapButtonSelector = "#heatmapDropdown";
+                heatmapMenuSelector = "div.oncoprint__controls__heatmap_menu";
+                clusterButtonSelector = heatmapMenuSelector + ' button[data-test="clusterHeatmapBtn"]';
+
+                sortButtonSelector="#sortDropdown";
+                sortMenuSelector = "div.oncoprint__controls__sort_menu";
+                sortMenuDataRadioSelector = sortMenuSelector + ' input[data-test="sortByData"]';
+                sortMenuHeatmapRadioSelector = sortMenuSelector + ' input[data-test="sortByHeatmapClustering"]';
+            });
+
+            it("should be active (pressed) if, and only if, the oncoprint is clustered by the profile selected in the dropdown", ()=>{
+                browser.url(CBIOPORTAL_URL+'/index.do?cancer_study_id=blca_tcga_pub&Z_SCORE_THRESHOLD=2&RPPA_SCORE_THRESHOLD=2&data_priority=0&case_set_id=blca_tcga_pub_cnaseq&gene_list=KRAS%2520NRAS%2520BRAF&geneset_list=%20&tab_index=tab_visualize&Action=Submit&genetic_profile_ids_PROFILE_MUTATION_EXTENDED=blca_tcga_pub_mutations&genetic_profile_ids_PROFILE_COPY_NUMBER_ALTERATION=blca_tcga_pub_gistic&show_samples=false&heatmap_track_groups=blca_tcga_pub_rna_seq_mrna_median_Zscores%2CKRAS%2CNRAS%2CBRAF%3Bblca_tcga_pub_rppa_Zscores%2CKRAS%2CNRAS%2CBRAF');
+                waitForOncoprint(10000);
+
+                // open heatmap menu
+                $(heatmapButtonSelector).click();
+                browser.waitForVisible(heatmapMenuSelector, 2000);
+                assert(browser.getAttribute(clusterButtonSelector, "class").split(/\s+/).indexOf("active") === -1, "button not active - 1");
+                // click button
+                browser.click(clusterButtonSelector);
+                browser.pause(100);// wait for oncoprint to sort
+                assert(browser.getAttribute(clusterButtonSelector, "class").split(/\s+/).indexOf("active") > -1, "button active - 1");
+                // change heatmap profile
+                browser.execute(function() { resultsViewOncoprint.selectHeatmapProfile(1); });
+                assert(browser.getAttribute(clusterButtonSelector, "class").split(/\s+/).indexOf("active") === -1, "button not active - 2");
+                browser.execute(function() { resultsViewOncoprint.selectHeatmapProfile(0); });
+                assert(browser.getAttribute(clusterButtonSelector, "class").split(/\s+/).indexOf("active") > -1, "button active - 2");
+            });
+            it("should return to sort by data when the button is un-clicked", ()=>{
+                // open sort menu, ensure sorted by heatmap clustering order
+                $(sortButtonSelector).click();
+                browser.waitForVisible(sortMenuSelector, 2000);
+                assert(!browser.isSelected(sortMenuDataRadioSelector), "not sorted by data");
+                assert(browser.isSelected(sortMenuHeatmapRadioSelector), "sorted by heatmap clustering");
+                // open heatmap menu and unclick clustering button
+                $(heatmapButtonSelector).click();
+                browser.waitForVisible(heatmapMenuSelector, 2000);
+                assert(browser.getAttribute(clusterButtonSelector, "class").split(/\s+/).indexOf("active") > -1, "button active");
+                browser.click(clusterButtonSelector);
+                assert(browser.getAttribute(clusterButtonSelector, "class").split(/\s+/).indexOf("active") === -1, "button not active");
+                // open sort menu, ensure sorted by data
+                $(sortButtonSelector).click();
+                browser.waitForVisible(sortMenuSelector, 2000);
+                assert(!browser.isSelected(sortMenuHeatmapRadioSelector), "not sorted by heatmap clustering");
+                assert(browser.isSelected(sortMenuDataRadioSelector), "sorted by data");
+            });
+        });
+    });
+    describe("mutation annotation", ()=>{
+        let mutationColorMenuButton;
+        let mutationColorMenuDropdown;
+        let oncoKbCheckbox;
+        let hotspotsCheckbox;
+        let cbioportalCheckbox;
+        let cosmicCheckbox;
+
+        before(()=>{
+            browser.url(CBIOPORTAL_URL+'/index.do?cancer_study_id=coadread_tcga_pub&Z_SCORE_THRESHOLD=2&RPPA_SCORE_THRESHOLD=2&data_priority=0&case_set_id=coadread_tcga_pub_cna_seq&gene_list=FBXW7&geneset_list=+&tab_index=tab_visualize&Action=Submit&genetic_profile_ids_PROFILE_MUTATION_EXTENDED=coadread_tcga_pub_mutations');
+            waitForOncoprint(10000);
+
+            mutationColorMenuButton = "#mutationColorDropdown";
+            mutationColorMenuDropdown = "div.oncoprint__controls__mutation_color_menu";
+
+            oncoKbCheckbox = mutationColorMenuDropdown + ' input[data-test="annotateOncoKb"]';
+            hotspotsCheckbox = mutationColorMenuDropdown + ' input[data-test="annotateHotspots"]';
+            cbioportalCheckbox = mutationColorMenuDropdown + ' input[data-test="annotateCBioPortalCount"]';
+            cosmicCheckbox = mutationColorMenuDropdown + ' input[data-test="annotateCOSMICCount"]';
+        });
+        it("annotates all types of mutations with cbioportal count and cosmic", ()=>{
+            browser.click(mutationColorMenuButton);
+            browser.waitForVisible(mutationColorMenuDropdown, 2000);
+            // select only mutation coloring by cbioportal count
+            browser.click(cbioportalCheckbox);
+            browser.click(oncoKbCheckbox);
+            browser.click(hotspotsCheckbox);
+            // set threshold 1
+            browser.execute(function() { resultsViewOncoprint.setAnnotateCBioPortalInputValue("1"); });
+            browser.pause(100); // give time to take effect
+            let legendText = browser.getText("#oncoprint-inner svg");
+            assert(legendText.indexOf("Inframe Mutation (putative driver)") > -1, "cbio count annotates inframe mutations");
+            assert(legendText.indexOf("Missense Mutation (putative driver)") > -1, "cbio count annotates missense mutations");
+            assert(legendText.indexOf("Truncating Mutation (putative driver)") > -1, "cbio count annotates truncating mutations");
+
+            // select only mutation coloring by cosmic count
+            browser.click(cosmicCheckbox);
+            browser.click(cbioportalCheckbox);
+            // set threshold 1
+            browser.execute(function() { resultsViewOncoprint.setAnnotateCOSMICInputValue("1"); });
+            browser.pause(100); // give time to take effect
+            legendText = browser.getText("#oncoprint-inner svg");
+            assert(legendText.indexOf("Inframe Mutation (putative driver)") > -1, "cosmic count annotates inframe mutations");
+            assert(legendText.indexOf("Missense Mutation (putative driver)") > -1, "cosmic count annotates missense mutations");
+            assert(legendText.indexOf("Truncating Mutation (putative driver)") > -1, "cosmic count annotates truncating mutations");
         });
     });
     describe("sorting", ()=>{
@@ -1005,6 +1125,7 @@ describe('case set selection in modify query form', function(){
     beforeEach(function(){
         var url = `${CBIOPORTAL_URL}/index.do?cancer_study_id=coadread_tcga_pub&Z_SCORE_THRESHOLD=2&RPPA_SCORE_THRESHOLD=2&data_priority=0&case_set_id=coadread_tcga_pub_rppa&gene_list=KRAS%2520NRAS%2520BRAF&geneset_list=+&tab_index=tab_visualize&Action=Submit&genetic_profile_ids_PROFILE_MUTATION_EXTENDED=coadread_tcga_pub_mutations&genetic_profile_ids_PROFILE_COPY_NUMBER_ALTERATION=coadread_tcga_pub_gistic`;
         goToUrlAndSetLocalStorage(url);
+        browser.waitForExist("#modifyQueryBtn", 60000)
     });
 
     it('contains correct selected case set through a certain use flow involving two selected studies', ()=>{
@@ -1094,6 +1215,7 @@ describe('genetic profile selection in modify query form', function(){
     beforeEach(function(){
         var url = `${CBIOPORTAL_URL}/index.do?cancer_study_id=chol_tcga&Z_SCORE_THRESHOLD=2.0&RPPA_SCORE_THRESHOLD=2.0&data_priority=0&case_set_id=chol_tcga_all&gene_list=EGFR&geneset_list=+&tab_index=tab_visualize&Action=Submit&genetic_profile_ids_PROFILE_MUTATION_EXTENDED=chol_tcga_mutations&genetic_profile_ids_PROFILE_COPY_NUMBER_ALTERATION=chol_tcga_gistic&genetic_profile_ids_PROFILE_PROTEIN_EXPRESSION=chol_tcga_rppa_Zscores`;
         goToUrlAndSetLocalStorage(url);
+        browser.waitForExist("#modifyQueryBtn", 60000)
     });
 
     it('contains correct selected genetic profiles through a certain use flow involving two studies', ()=>{
