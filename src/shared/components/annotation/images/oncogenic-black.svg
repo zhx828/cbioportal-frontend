@@ -4,8 +4,8 @@
 <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="30" height="30">
   <!--No level icons-->
       <g  transform="translate(15, 15)">
-        <circle r="13" fill="none" stroke-width="4" stroke="#007FFF"></circle>
-        <circle r="7" fill="none" stroke-width="4" stroke="#007FFF"></circle>
-        <circle r="3" fill="#007FFF" stroke="none"></circle>
+        <circle r="13" fill="none" stroke-width="4" stroke="#333333"></circle>
+        <circle r="7" fill="none" stroke-width="4" stroke="#333333"></circle>
+        <circle r="3" fill="#333333" stroke="none"></circle>
       </g>
 </svg>

@@ -79,10 +79,14 @@
   background-color: #d3d3d3;
 }
 
-.gistic, .mutSig {
+.cancerGenesHeader > img {
+  height: 13px;
+}
+
+.gistic, .mutSig, .cancerGenesRow > img {
   height: 10px;
   margin-left: 2px;
-  vertical-align:inherit !important;
+  vertical-align: inherit !important;
 }
 
 .amp {

@@ -2,6 +2,7 @@ import * as _ from 'lodash';
 import {remoteData} from "../../shared/api/remoteData";
 import internalClient from "shared/api/cbioportalInternalClientInstance";
 import defaultClient from "shared/api/cbioportalClientInstance";
+import oncoKBClient from "shared/api/oncokbClientInstance";
 import {action, computed, observable, ObservableMap, reaction, toJS, IReactionDisposer} from "mobx";
 import {
     ClinicalDataBinCountFilter,
@@ -90,6 +91,7 @@ import {getMDAndersonHeatmapStudyMetaUrl, getStudyDownloadListUrl} from "../../s
 import onMobxPromise from "../../shared/lib/onMobxPromise";
 import request from 'superagent';
 import {trackStudyViewFilterEvent} from "../../shared/lib/tracking";
+import {CancerGene} from "../../shared/api/generated/OncoKbAPI";
 
 export enum ClinicalDataTypeEnum {
     SAMPLE = 'SAMPLE',
@@ -148,8 +150,6 @@ export const UNSELECTED_ANALYSIS_GROUP_VALUE = "Unselected";
 
 export type ClinicalDataCountWithColor = ClinicalDataCount & { color: string }
 export type AnalysisGroup = { value:string, color:string, legendText?:string};
-export type MutatedGenesData = MutationCountByGene[];
-export type CNAGenesData = CopyNumberCountByGene[];
 export type SurvivalType = {
     id: string,
     title: string,
@@ -280,6 +280,16 @@ export type StatusMessage = {
     status: 'success' | 'warning' | 'danger' | 'info',
     message: string
 };
+
+export type MutationCountByGeneWithCancerGene = MutationCountByGene & {
+    oncokbAnnotated: boolean;
+    isCancerGene: boolean;
+}
+
+export type CopyNumberCountByGeneWithCancerGene = CopyNumberCountByGene & {
+    oncokbAnnotated: boolean;
+    isCancerGene: boolean;
+}
 
 export enum Datalabel {
     YES = 'YES',
@@ -2274,6 +2284,27 @@ export class StudyViewPageStore {
         default: []
     });
 
+    readonly oncokbCancerGenes = remoteData<CancerGene[]>({
+        await: () => [],
+        invoke: async () => {
+            return oncoKBClient.utilsCancerGeneListGetUsingGET({});
+        },
+        onError: (error => {
+            console.log(error);
+        }),
+        default: []
+    });
+
+    @computed
+    get oncokbCancerGeneEntrezGeneIds() {
+        return this.oncokbCancerGenes.result.map(gene => Number(gene.entrezGeneId));
+    }
+
+    @computed
+    get oncokbAnnotatedGeneEntrezGeneIds() {
+        return this.oncokbCancerGenes.result.filter(gene => gene.oncokbAnnotated).map(gene => Number(gene.entrezGeneId));
+    }
+
     readonly initialVisibleAttributesClinicalDataCountData = remoteData<ClinicalDataCountItem[]>({
         await: () => [this.defaultVisibleAttributes],
         invoke: async () => {
@@ -2499,14 +2530,21 @@ export class StudyViewPageStore {
         default: []
     });
 
-    readonly mutatedGeneData = remoteData<MutatedGenesData>({
-        await: () => [this.mutationProfiles],
+    readonly mutatedGeneData = remoteData<MutationCountByGeneWithCancerGene[]>({
+        await: () => [this.mutationProfiles, this.oncokbCancerGenes],
         invoke: async () => {
             if (!_.isEmpty(this.mutationProfiles.result!)) {
                 // TODO: get data for all profiles
-                return internalClient.fetchMutatedGenesUsingPOST({
+                let mutatedGenes = await internalClient.fetchMutatedGenesUsingPOST({
                     studyViewFilter: this.filters
                 });
+                return mutatedGenes.map(item => {
+                    return {
+                        ...item,
+                        oncokbAnnotated: this.oncokbAnnotatedGeneEntrezGeneIds.includes(item.entrezGeneId),
+                        isCancerGene: this.oncokbCancerGeneEntrezGeneIds.includes(item.entrezGeneId)
+                    } as MutationCountByGeneWithCancerGene
+                })
             } else {
                 return [];
             }
@@ -2515,14 +2553,21 @@ export class StudyViewPageStore {
         default: []
     });
 
-    readonly cnaGeneData = remoteData<CNAGenesData>({
-        await:()=>[this.cnaProfiles],
+    readonly cnaGeneData = remoteData<CopyNumberCountByGeneWithCancerGene[]>({
+        await:()=>[this.cnaProfiles, this.oncokbCancerGenes],
         invoke: async () => {
             if (!_.isEmpty(this.cnaProfiles.result)) {
                 // TODO: get data for all profiles
-                return internalClient.fetchCNAGenesUsingPOST({
+                let cnaGenes = await internalClient.fetchCNAGenesUsingPOST({
                     studyViewFilter: this.filters
                 });
+                return cnaGenes.map(item => {
+                    return {
+                        ...item,
+                        oncokbAnnotated: this.oncokbAnnotatedGeneEntrezGeneIds.includes(item.entrezGeneId),
+                        isCancerGene: this.oncokbCancerGeneEntrezGeneIds.includes(item.entrezGeneId)
+                    } as CopyNumberCountByGeneWithCancerGene
+                })
             } else {
                 return [];
             }

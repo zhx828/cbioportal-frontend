@@ -1,8 +1,7 @@
 import * as React from "react";
-import {GeneIdentifier, MutatedGenesData} from "pages/studyView/StudyViewPageStore";
+import {GeneIdentifier, MutationCountByGeneWithCancerGene} from "pages/studyView/StudyViewPageStore";
 import {observer} from "mobx-react";
 import styles from "./tables.module.scss";
-import {MutationCountByGene} from "shared/api/generated/CBioPortalAPIInternal";
 import LabeledCheckbox from "../../../shared/components/labeledCheckbox/LabeledCheckbox";
 import MobxPromise from "mobxpromise";
 import {If} from 'react-if';
@@ -21,10 +20,16 @@ import {
     getQValue
 } from "../StudyViewUtils";
 import {SortDirection} from "../../../shared/components/lazyMobXTable/LazyMobXTable";
-import {DEFAULT_SORTING_COLUMN} from "../StudyViewConfig";
+import {OncokbIconLinkImg} from "../oncokb/OncokbIconLinkImg";
+import {
+    getOncoKBTableHeaderIcon,
+    getOncoKBTableHeaderTooltip,
+    getOncoKBTableColumnSortBy,
+    getOncoKBTableColumnFilter
+} from '../oncokb/OncoKBUtils';
 
 export interface IMutatedGenesTablePros {
-    promise: MobxPromise<MutatedGenesData>;
+    promise: MobxPromise<MutationCountByGeneWithCancerGene[]>;
     width: number;
     height: number;
     filters: number[];
@@ -42,21 +47,22 @@ type MutatedGenesTableUserSelectionWithIndex = {
 
 enum ColumnKey {
     GENE = 'Gene',
+    CANCER_GENES = 'Cancer Genes',
     NUMBER_MUTATIONS = '# Mut',
     NUMBER = '#',
     FREQ = 'Freq'
 }
-
-class MutatedGenesTableComponent extends FixedHeaderTable<MutationCountByGene> {
+class MutatedGenesTableComponent extends FixedHeaderTable<MutationCountByGeneWithCancerGene> {
 }
 
 @observer
 export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {}> {
     @observable private preSelectedRows: MutatedGenesTableUserSelectionWithIndex[] = [];
-    @observable private sortBy: string = DEFAULT_SORTING_COLUMN;
+    @observable private sortBy: string = ColumnKey.CANCER_GENES;
     @observable private sortDirection: SortDirection;
     @observable private cellMargin: { [key: string]: number } = {
         [ColumnKey.GENE]: 0,
+        [ColumnKey.CANCER_GENES]: 0,
         [ColumnKey.NUMBER_MUTATIONS]: 0,
         [ColumnKey.NUMBER]: 0,
         [ColumnKey.FREQ]: 0,
@@ -86,11 +92,15 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
 
     @computed
     get columnsWidth() {
+        // 20px is reserved for oncokb column
+        const cancerGeneWidth = 30;
+        let availableWidth = this.props.width - cancerGeneWidth;
         return {
-            [ColumnKey.GENE]: correctColumnWidth(this.props.width * 0.35),
-            [ColumnKey.NUMBER_MUTATIONS]: correctColumnWidth(this.props.width * 0.25),
-            [ColumnKey.NUMBER]: correctColumnWidth(this.props.width * 0.25),
-            [ColumnKey.FREQ]: correctColumnWidth(this.props.width * 0.15)
+            [ColumnKey.GENE]: correctColumnWidth(availableWidth * 0.35),
+            [ColumnKey.CANCER_GENES]: cancerGeneWidth,
+            [ColumnKey.NUMBER_MUTATIONS]: correctColumnWidth(availableWidth * 0.25),
+            [ColumnKey.NUMBER]: correctColumnWidth(availableWidth * 0.25),
+            [ColumnKey.FREQ]: correctColumnWidth(availableWidth * 0.15)
         };
     }
 
@@ -124,7 +134,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
         return [{
             name: ColumnKey.GENE,
             tooltip: (<span>Gene</span>),
-            render: (data: MutationCountByGene) => {
+            render: (data: MutationCountByGeneWithCancerGene) => {
                 const addGeneOverlay = () =>
                     <span>{`Click ${data.hugoGeneSymbol} to ${_.includes(this.props.selectedGenes, data.hugoGeneSymbol) ? 'remove from' : 'add to'} your query`}</span>;
                 const qvalOverlay = () =>
@@ -155,27 +165,40 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
                     </div>
                 )
             },
-            sortBy: (data: MutationCountByGene) => data.hugoGeneSymbol,
+            sortBy: (data: MutationCountByGeneWithCancerGene) => data.hugoGeneSymbol,
             defaultSortDirection: 'asc' as 'asc',
-            filter: (data: MutationCountByGene, filterString: string, filterStringUpper: string) => {
+            filter: (data: MutationCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
                 return data.hugoGeneSymbol.toUpperCase().includes(filterStringUpper);
             },
             width: this.columnsWidth[ColumnKey.GENE]
+        }, {
+            name: ColumnKey.CANCER_GENES,
+            headerRender: () => getOncoKBTableHeaderIcon(),
+            tooltip: (getOncoKBTableHeaderTooltip()),
+            render: (data: MutationCountByGeneWithCancerGene) => {
+                return <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
+            },
+            sortBy: (data: MutationCountByGeneWithCancerGene) => getOncoKBTableColumnSortBy(data.isCancerGene, data.frequency),
+            defaultSortDirection: 'desc' as 'desc',
+            filter: (data: MutationCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
+                return getOncoKBTableColumnFilter(data.isCancerGene, filterStringUpper);
+            },
+            width: this.columnsWidth[ColumnKey.CANCER_GENES]
         }, {
             name: ColumnKey.NUMBER_MUTATIONS,
             tooltip: (<span>Total number of mutations</span>),
             headerRender: () => {
                 return <div style={{marginLeft: this.cellMargin[ColumnKey.NUMBER_MUTATIONS]}}># Mut</div>
             },
-            render: (data: MutationCountByGene) => <span
+            render: (data: MutationCountByGeneWithCancerGene) => <span
                 style={{
                     flexDirection: 'row-reverse',
                     display: 'flex',
                     marginRight: this.cellMargin[ColumnKey.NUMBER_MUTATIONS]
                 }}>{data.totalCount.toLocaleString()}</span>,
-            sortBy: (data: MutationCountByGene) => data.totalCount,
+            sortBy: (data: MutationCountByGeneWithCancerGene) => data.totalCount,
             defaultSortDirection: 'desc' as 'desc',
-            filter: (data: MutationCountByGene, filterString: string) => {
+            filter: (data: MutationCountByGeneWithCancerGene, filterString: string) => {
                 return _.toString(data.totalCount).includes(filterString);
             },
             width: this.columnsWidth[ColumnKey.NUMBER_MUTATIONS]
@@ -185,7 +208,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
             headerRender: () => {
                 return <div style={{marginLeft: this.cellMargin[ColumnKey.NUMBER]}}>#</div>
             },
-            render: (data: MutationCountByGene) =>
+            render: (data: MutationCountByGeneWithCancerGene) =>
                 <LabeledCheckbox
                     checked={this.isChecked(data.entrezGeneId)}
                     disabled={this.isDisabled(data.entrezGeneId)}
@@ -204,9 +227,9 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
                 >
                     <span>{data.countByEntity.toLocaleString()}</span>
                 </LabeledCheckbox>,
-            sortBy: (data: MutationCountByGene) => data.countByEntity,
+            sortBy: (data: MutationCountByGeneWithCancerGene) => data.countByEntity,
             defaultSortDirection: 'desc' as 'desc',
-            filter: (data: MutationCountByGene, filterString: string) => {
+            filter: (data: MutationCountByGeneWithCancerGene, filterString: string) => {
                 return _.toString(data.countByEntity).includes(filterString);
             },
             width: this.columnsWidth[ColumnKey.NUMBER]
@@ -216,15 +239,15 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
             headerRender: () => {
                 return <div style={{marginLeft: this.cellMargin[ColumnKey.FREQ]}}>Freq</div>
             },
-            render: (data: MutationCountByGene) => <span
+            render: (data: MutationCountByGeneWithCancerGene) => <span
                 style={{
                     flexDirection: 'row-reverse',
                     display: 'flex',
                     marginRight: this.cellMargin[ColumnKey.FREQ]
                 }}>{getFrequencyStr(data.frequency)}</span>,
-            sortBy: (data: MutationCountByGene) => data.frequency,
+            sortBy: (data: MutationCountByGeneWithCancerGene) => data.frequency,
             defaultSortDirection: 'desc' as 'desc',
-            filter: (data: MutationCountByGene, filterString: string) => {
+            filter: (data: MutationCountByGeneWithCancerGene, filterString: string) => {
                 return _.toString(getFrequencyStr(data.frequency)).includes(filterString);
             },
             width: this.columnsWidth[ColumnKey.FREQ]
@@ -252,7 +275,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
         if (_.isUndefined(record)) {
             let dataIndex = -1;
             // definitely there is a match
-            let datum: MutationCountByGene | undefined = _.find(this.props.promise.result, (row: MutationCountByGene, index: number) => {
+            let datum: MutationCountByGeneWithCancerGene | undefined = _.find(this.props.promise.result, (row: MutationCountByGeneWithCancerGene, index: number) => {
                 let exist = row.entrezGeneId === entrezGeneId;
                 if (exist) {
                     dataIndex = index;
@@ -290,7 +313,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
         if (this.props.filters.length === 0) {
             return [];
         } else {
-            return _.reduce(this.props.promise.result, (acc: MutatedGenesTableUserSelectionWithIndex[], row: MutationCountByGene, index: number) => {
+            return _.reduce(this.props.promise.result, (acc: MutatedGenesTableUserSelectionWithIndex[], row: MutationCountByGeneWithCancerGene, index: number) => {
                 if (_.includes(this.props.filters, row.entrezGeneId)) {
                     acc.push({
                         rowIndex: index,
@@ -304,7 +327,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
     }
 
     @autobind
-    isSelectedRow(data: MutationCountByGene) {
+    isSelectedRow(data: MutationCountByGeneWithCancerGene) {
         return !_.isUndefined(_.find(_.union(this.selectedRows, this.preSelectedRows), function (row) {
             return row.entrezGeneId === data.entrezGeneId;
         }));

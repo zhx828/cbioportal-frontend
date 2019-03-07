@@ -63,6 +63,7 @@ export interface IChartContainerProps {
     logScaleChecked?:boolean;
     showLogScaleToggle?:boolean;
     selectedGenes?:any;
+    cancerGenes:number[];
     onGeneSelect?:any;
     isNewlyAdded: (uniqueKey: string) => boolean;
 

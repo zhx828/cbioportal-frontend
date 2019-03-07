@@ -1,6 +1,9 @@
 import * as React from "react";
 import * as _ from "lodash";
-import {CNAGenesData, CopyNumberAlterationIdentifier} from "pages/studyView/StudyViewPageStore";
+import {
+    CopyNumberAlterationIdentifier,
+    CopyNumberCountByGeneWithCancerGene, MutationCountByGeneWithCancerGene
+} from "pages/studyView/StudyViewPageStore";
 import {action, computed, IReactionDisposer, observable, reaction} from "mobx";
 import {observer} from "mobx-react";
 import styles from "./tables.module.scss";
@@ -23,7 +26,13 @@ import {
     getQValue
 } from "../StudyViewUtils";
 import {SortDirection} from "../../../shared/components/lazyMobXTable/LazyMobXTable";
-import {DEFAULT_SORTING_COLUMN} from "../StudyViewConfig";
+import {
+    getOncoKBTableColumnFilter,
+    getOncoKBTableColumnSortBy,
+    getOncoKBTableHeaderIcon,
+    getOncoKBTableHeaderTooltip
+} from "../oncokb/OncoKBUtils";
+import {OncokbIconLinkImg} from "../oncokb/OncokbIconLinkImg";
 
 
 export type  CNAGenesTableUserSelectionWithIndex = CopyNumberAlterationIdentifier & {
@@ -31,7 +40,7 @@ export type  CNAGenesTableUserSelectionWithIndex = CopyNumberAlterationIdentifie
 }
 
 export interface ICNAGenesTablePros {
-    promise: MobxPromise<CNAGenesData>;
+    promise: MobxPromise<CopyNumberCountByGeneWithCancerGene[]>;
     width: number;
     height: number;
     filters: CopyNumberGeneFilterElement[];
@@ -41,11 +50,12 @@ export interface ICNAGenesTablePros {
     selectedGenes: string[]
 }
 
-class CNAGenesTableComponent extends FixedHeaderTable<CopyNumberCountByGene> {
+class CNAGenesTableComponent extends FixedHeaderTable<CopyNumberCountByGeneWithCancerGene> {
 }
 
 enum ColumnKey {
     GENE = 'Gene',
+    CANCER_GENES = 'Cancer Genes',
     CYTOBAND = 'Cytoband',
     CNA = 'CNA',
     NUMBER = '#',
@@ -55,10 +65,11 @@ enum ColumnKey {
 @observer
 export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
     @observable private preSelectedRows: CNAGenesTableUserSelectionWithIndex[] = [];
-    @observable private sortBy: string = DEFAULT_SORTING_COLUMN;
+    @observable private sortBy: string = ColumnKey.CANCER_GENES;
     @observable private sortDirection: SortDirection;
     @observable private cellMargin: { [key: string]: number } = {
         [ColumnKey.GENE]: 0,
+        [ColumnKey.CANCER_GENES]: 0,
         [ColumnKey.CYTOBAND]: 0,
         [ColumnKey.CNA]: 0,
         [ColumnKey.NUMBER]: 0,
@@ -90,12 +101,16 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
 
     @computed
     get columnsWidth() {
+        // 20px is reserved for oncokb column
+        const cancerGeneWidth = 30;
+        let availableWidth = this.props.width - cancerGeneWidth;
         return {
-            [ColumnKey.GENE]: correctColumnWidth(this.props.width * 0.25),
-            [ColumnKey.CYTOBAND]: correctColumnWidth(this.props.width * 0.25),
-            [ColumnKey.CNA]: correctColumnWidth(this.props.width * 0.14),
-            [ColumnKey.NUMBER]: correctColumnWidth(this.props.width * 0.18),
-            [ColumnKey.FREQ]: correctColumnWidth(this.props.width * 0.18),
+            [ColumnKey.GENE]: correctColumnWidth(availableWidth * 0.25),
+            [ColumnKey.CANCER_GENES]: cancerGeneWidth,
+            [ColumnKey.CYTOBAND]: correctColumnWidth(availableWidth * 0.25),
+            [ColumnKey.CNA]: correctColumnWidth(availableWidth * 0.14),
+            [ColumnKey.NUMBER]: correctColumnWidth(availableWidth * 0.18),
+            [ColumnKey.FREQ]: correctColumnWidth(availableWidth * 0.18),
         };
     }
 
@@ -162,6 +177,19 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
                 return data.hugoGeneSymbol.toUpperCase().includes(filterStringUpper);
             },
             width: 90
+        }, {
+            name: ColumnKey.CANCER_GENES,
+            headerRender: () => getOncoKBTableHeaderIcon(),
+            tooltip: (getOncoKBTableHeaderTooltip()),
+            render: (data: MutationCountByGeneWithCancerGene) => {
+                return <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
+            },
+            sortBy: (data: MutationCountByGeneWithCancerGene) => getOncoKBTableColumnSortBy(data.isCancerGene, data.frequency),
+            defaultSortDirection: 'desc' as 'desc',
+            filter: (data: MutationCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
+                return getOncoKBTableColumnFilter(data.isCancerGene, filterStringUpper);
+            },
+            width: this.columnsWidth[ColumnKey.CANCER_GENES]
         }, {
             name: ColumnKey.CYTOBAND,
             tooltip: (<span>Cytoband</span>),

@@ -13,10 +13,10 @@ type OncoKbTrackProps = TrackProps & {
 
 const ONCOKB_ID_CLASS_PREFIX = "onco-kb-";
 
-export function getOncoKbImage() {
-    const oncoKbImgSrc = require("../annotation/images/oncogenic-only.svg");
+export function getOncoKbImage(image?: 'oncogenic-only' | 'oncogenic-black') {
+    const oncoKbImgSrc = require(`../annotation/images/${image ? image : 'oncogenic-only'}.svg`);
 
-    return <img src={oncoKbImgSrc} alt='OncoKB' />;
+    return <img src={oncoKbImgSrc} alt='OncoKB'/>;
 }
 
 function defaultFilter(d: Mutation[], oncoKbData?: IOncoKbData): boolean
