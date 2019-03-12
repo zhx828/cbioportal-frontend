@@ -3,7 +3,7 @@ import {remoteData} from "../../shared/api/remoteData";
 import internalClient from "shared/api/cbioportalInternalClientInstance";
 import defaultClient from "shared/api/cbioportalClientInstance";
 import oncoKBClient from "shared/api/oncokbClientInstance";
-import {action, computed, observable, ObservableMap, reaction, toJS, IReactionDisposer} from "mobx";
+import {action, computed, IReactionDisposer, observable, ObservableMap, reaction, toJS} from "mobx";
 import {
     ClinicalDataBinCountFilter,
     ClinicalDataBinFilter,
@@ -38,23 +38,22 @@ import {
     Gene,
     MolecularProfile,
     MolecularProfileFilter,
-    Patient,
-    PatientFilter,
-    SampleFilter
+    Patient
 } from 'shared/api/generated/CBioPortalAPI';
 import {fetchCopyNumberSegmentsForSamples} from "shared/lib/StoreUtils";
 import {PatientSurvival} from 'shared/model/PatientSurvival';
 import {getPatientSurvivals} from 'pages/resultsView/SurvivalStoreHelper';
 import {
     calculateLayout,
-    COLORS,
     generateScatterPlotDownloadData,
     getChartMetaDataType,
     getClinicalAttributeUniqueKey,
     getClinicalAttributeUniqueKeyByDataTypeAttrId,
+    getClinicalDataCountWithColorByCategoryCounts,
     getClinicalDataCountWithColorByClinicalDataCount,
     getClinicalDataIntervalFilterValues,
-    getClinicalDataType, getClinicalEqualityFilterValuesByString,
+    getClinicalDataType,
+    getClinicalEqualityFilterValuesByString,
     getCNAByAlteration,
     getDefaultPriorityByUniqueKey,
     getFilteredSampleIdentifiers,
@@ -71,8 +70,7 @@ import {
     MutationCountVsCnaYBinsMin,
     NA_DATA,
     showOriginStudiesInSummaryDescription,
-    submitToPage,
-    getClinicalDataCountWithColorByCategoryCounts
+    submitToPage
 } from './StudyViewUtils';
 import MobxPromise from 'mobxpromise';
 import {SingleGeneQuery} from 'shared/lib/oql/oql-parser';
@@ -91,7 +89,7 @@ import {getMDAndersonHeatmapStudyMetaUrl, getStudyDownloadListUrl} from "../../s
 import onMobxPromise from "../../shared/lib/onMobxPromise";
 import request from 'superagent';
 import {trackStudyViewFilterEvent} from "../../shared/lib/tracking";
-import {CancerGene} from "../../shared/api/generated/OncoKbAPI";
+import {CancerGene, Gene as OncokbGene} from "../../shared/api/generated/OncoKbAPI";
 
 export enum ClinicalDataTypeEnum {
     SAMPLE = 'SAMPLE',
@@ -283,11 +281,15 @@ export type StatusMessage = {
 
 export type MutationCountByGeneWithCancerGene = MutationCountByGene & {
     oncokbAnnotated: boolean;
+    oncokbOcg: boolean;
+    oncokbTsg: boolean;
     isCancerGene: boolean;
 }
 
 export type CopyNumberCountByGeneWithCancerGene = CopyNumberCountByGene & {
     oncokbAnnotated: boolean;
+    oncokbOcg: boolean;
+    oncokbTsg: boolean;
     isCancerGene: boolean;
 }
 
@@ -2295,6 +2297,17 @@ export class StudyViewPageStore {
         default: []
     });
 
+    readonly oncokbGenes = remoteData<OncokbGene[]>({
+        await: () => [],
+        invoke: async () => {
+            return oncoKBClient.genesGetUsingGET({});
+        },
+        onError: (error => {
+            console.log(error);
+        }),
+        default: []
+    });
+
     @computed
     get oncokbCancerGeneEntrezGeneIds() {
         return this.oncokbCancerGenes.result.map(gene => Number(gene.entrezGeneId));
@@ -2304,6 +2317,17 @@ export class StudyViewPageStore {
     get oncokbAnnotatedGeneEntrezGeneIds() {
         return this.oncokbCancerGenes.result.filter(gene => gene.oncokbAnnotated).map(gene => Number(gene.entrezGeneId));
     }
+
+    @computed
+    get oncokbOcgsEntrezGeneIds() {
+        return this.oncokbGenes.result.filter(gene => gene.oncogene).map(gene => Number(gene.entrezGeneId));
+    }
+
+    @computed
+    get oncokbTsgEntrezGeneIds() {
+        return this.oncokbGenes.result.filter(gene => gene.tsg).map(gene => Number(gene.entrezGeneId));
+    }
+
 
     readonly initialVisibleAttributesClinicalDataCountData = remoteData<ClinicalDataCountItem[]>({
         await: () => [this.defaultVisibleAttributes],
@@ -2531,7 +2555,7 @@ export class StudyViewPageStore {
     });
 
     readonly mutatedGeneData = remoteData<MutationCountByGeneWithCancerGene[]>({
-        await: () => [this.mutationProfiles, this.oncokbCancerGenes],
+        await: () => [this.mutationProfiles, this.oncokbCancerGenes, this.oncokbGenes],
         invoke: async () => {
             if (!_.isEmpty(this.mutationProfiles.result!)) {
                 // TODO: get data for all profiles
@@ -2542,6 +2566,8 @@ export class StudyViewPageStore {
                     return {
                         ...item,
                         oncokbAnnotated: this.oncokbAnnotatedGeneEntrezGeneIds.includes(item.entrezGeneId),
+                        oncokbOcg: this.oncokbOcgsEntrezGeneIds.includes(item.entrezGeneId),
+                        oncokbTsg: this.oncokbTsgEntrezGeneIds.includes(item.entrezGeneId),
                         isCancerGene: this.oncokbCancerGeneEntrezGeneIds.includes(item.entrezGeneId)
                     } as MutationCountByGeneWithCancerGene
                 })
@@ -2565,6 +2591,8 @@ export class StudyViewPageStore {
                     return {
                         ...item,
                         oncokbAnnotated: this.oncokbAnnotatedGeneEntrezGeneIds.includes(item.entrezGeneId),
+                        oncokbOcg: this.oncokbOcgsEntrezGeneIds.includes(item.entrezGeneId),
+                        oncokbTsg: this.oncokbTsgEntrezGeneIds.includes(item.entrezGeneId),
                         isCancerGene: this.oncokbCancerGeneEntrezGeneIds.includes(item.entrezGeneId)
                     } as CopyNumberCountByGeneWithCancerGene
                 })

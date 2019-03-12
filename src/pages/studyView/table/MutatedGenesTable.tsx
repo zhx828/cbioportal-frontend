@@ -93,7 +93,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
     @computed
     get columnsWidth() {
         // 20px is reserved for oncokb column
-        const cancerGeneWidth = 30;
+        const cancerGeneWidth = 40;
         let availableWidth = this.props.width - cancerGeneWidth;
         return {
             [ColumnKey.GENE]: correctColumnWidth(availableWidth * 0.35),
@@ -176,7 +176,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
             headerRender: () => getOncoKBTableHeaderIcon(),
             tooltip: (getOncoKBTableHeaderTooltip()),
             render: (data: MutationCountByGeneWithCancerGene) => {
-                return <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
+                return <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} oncokbOcg={data.oncokbOcg} oncobkbTsg={data.oncokbTsg} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
             },
             sortBy: (data: MutationCountByGeneWithCancerGene) => getOncoKBTableColumnSortBy(data.isCancerGene, data.frequency),
             defaultSortDirection: 'desc' as 'desc',
