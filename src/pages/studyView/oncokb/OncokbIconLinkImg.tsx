@@ -47,6 +47,6 @@ export class OncokbIconLinkImg extends React.Component<OncokbIconLinkImgProps, {
     }
 
     render() {
-        return <span>{!this.props.oncobkbTsg && !this.props.oncokbOcg ? this.getOncokbIcon() : this.getGeneTypeText()}</span>;
+        return <span>{this.getOncokbIcon()}</span>;
     }
 }

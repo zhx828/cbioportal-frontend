@@ -47,7 +47,6 @@ type MutatedGenesTableUserSelectionWithIndex = {
 
 enum ColumnKey {
     GENE = 'Gene',
-    CANCER_GENES = 'Cancer Genes',
     NUMBER_MUTATIONS = '# Mut',
     NUMBER = '#',
     FREQ = 'Freq'
@@ -58,11 +57,10 @@ class MutatedGenesTableComponent extends FixedHeaderTable<MutationCountByGeneWit
 @observer
 export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {}> {
     @observable private preSelectedRows: MutatedGenesTableUserSelectionWithIndex[] = [];
-    @observable private sortBy: string = ColumnKey.CANCER_GENES;
+    @observable private sortBy: string = ColumnKey.FREQ;
     @observable private sortDirection: SortDirection;
     @observable private cellMargin: { [key: string]: number } = {
         [ColumnKey.GENE]: 0,
-        [ColumnKey.CANCER_GENES]: 0,
         [ColumnKey.NUMBER_MUTATIONS]: 0,
         [ColumnKey.NUMBER]: 0,
         [ColumnKey.FREQ]: 0,
@@ -92,15 +90,11 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
 
     @computed
     get columnsWidth() {
-        // 20px is reserved for oncokb column
-        const cancerGeneWidth = 40;
-        let availableWidth = this.props.width - cancerGeneWidth;
         return {
-            [ColumnKey.GENE]: correctColumnWidth(availableWidth * 0.35),
-            [ColumnKey.CANCER_GENES]: cancerGeneWidth,
-            [ColumnKey.NUMBER_MUTATIONS]: correctColumnWidth(availableWidth * 0.25),
-            [ColumnKey.NUMBER]: correctColumnWidth(availableWidth * 0.25),
-            [ColumnKey.FREQ]: correctColumnWidth(availableWidth * 0.15)
+            [ColumnKey.GENE]: correctColumnWidth(this.props.width * 0.35),
+            [ColumnKey.NUMBER_MUTATIONS]: correctColumnWidth(this.props.width * 0.25),
+            [ColumnKey.NUMBER]: correctColumnWidth(this.props.width * 0.25),
+            [ColumnKey.FREQ]: correctColumnWidth(this.props.width * 0.15)
         };
     }
 
@@ -162,6 +156,15 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
                                                className={styles.mutSig}></img></span>
                             </DefaultTooltip>
                         </If>
+                        <If condition={data.isCancerGene}>
+                            <DefaultTooltip
+                                placement="right"
+                                overlay={""}
+                                destroyTooltipOnHide={true}
+                            >
+                                <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} oncokbOcg={data.oncokbOcg} oncobkbTsg={data.oncokbTsg} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
+                            </DefaultTooltip>
+                        </If>
                     </div>
                 )
             },
@@ -171,19 +174,6 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
                 return data.hugoGeneSymbol.toUpperCase().includes(filterStringUpper);
             },
             width: this.columnsWidth[ColumnKey.GENE]
-        }, {
-            name: ColumnKey.CANCER_GENES,
-            headerRender: () => getOncoKBTableHeaderIcon(),
-            tooltip: (getOncoKBTableHeaderTooltip()),
-            render: (data: MutationCountByGeneWithCancerGene) => {
-                return <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} oncokbOcg={data.oncokbOcg} oncobkbTsg={data.oncokbTsg} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
-            },
-            sortBy: (data: MutationCountByGeneWithCancerGene) => getOncoKBTableColumnSortBy(data.isCancerGene, data.frequency),
-            defaultSortDirection: 'desc' as 'desc',
-            filter: (data: MutationCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
-                return getOncoKBTableColumnFilter(data.isCancerGene, filterStringUpper);
-            },
-            width: this.columnsWidth[ColumnKey.CANCER_GENES]
         }, {
             name: ColumnKey.NUMBER_MUTATIONS,
             tooltip: (<span>Total number of mutations</span>),
