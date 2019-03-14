@@ -141,7 +141,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
                             destroyTooltipOnHide={true}
                         >
                             <span
-                                className={classnames(styles.geneSymbol, styles.ellipsisText, _.includes(this.props.selectedGenes, data.hugoGeneSymbol) ? styles.selected : undefined, _.isUndefined(data.qValue) ? undefined : styles.shortenText)}
+                                className={classnames(styles.geneSymbol, styles.ellipsisText, data.isCancerGene ? styles.selected : undefined, _.isUndefined(data.qValue) ? undefined : styles.shortenText)}
                                 onClick={() => this.props.onGeneSelect(data.hugoGeneSymbol)}>
                                 {data.hugoGeneSymbol}
                             </span>
@@ -156,14 +156,8 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
                                                className={styles.mutSig}></img></span>
                             </DefaultTooltip>
                         </If>
-                        <If condition={data.isCancerGene}>
-                            <DefaultTooltip
-                                placement="right"
-                                overlay={""}
-                                destroyTooltipOnHide={true}
-                            >
-                                <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} oncokbOcg={data.oncokbOcg} oncobkbTsg={data.oncokbTsg} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
-                            </DefaultTooltip>
+                        <If condition={_.includes(this.props.selectedGenes, data.hugoGeneSymbol)}>
+                            <i className='fa fa-check-square-o' style={{marginLeft: 5}}></i>
                         </If>
                     </div>
                 )
