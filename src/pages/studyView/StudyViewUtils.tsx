@@ -38,6 +38,7 @@ import {ChartDimension, ChartTypeEnum, Position, STUDY_VIEW_CONFIG} from "./Stud
 import {IStudyViewDensityScatterPlotDatum} from "./charts/scatterPlot/StudyViewDensityScatterPlot";
 import MobxPromise from 'mobxpromise';
 import {getTextWidth} from "../../shared/lib/wrapText";
+import {getOncoKBReferenceInfo} from "./oncokb/OncoKBUtils";
 
 export const COLORS = [
     STUDY_VIEW_CONFIG.colors.theme.primary, STUDY_VIEW_CONFIG.colors.theme.secondary,

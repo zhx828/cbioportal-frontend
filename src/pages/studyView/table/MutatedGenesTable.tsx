@@ -25,8 +25,14 @@ import {
     getOncoKBTableHeaderIcon,
     getOncoKBTableHeaderTooltip,
     getOncoKBTableColumnSortBy,
-    getOncoKBTableColumnFilter
+    getOncoKBTableColumnFilter, getOncoKBReferenceInfo
 } from '../oncokb/OncoKBUtils';
+import {
+    getGeneColumnAscSortBy,
+    getGeneColumnCellOverlay,
+    getGeneColumnRender,
+    getGeneColumnTooltip
+} from "../TableUtils";
 
 export interface IMutatedGenesTablePros {
     promise: MobxPromise<MutationCountByGeneWithCancerGene[]>;
@@ -127,42 +133,21 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
     get tableColumns() {
         return [{
             name: ColumnKey.GENE,
-            tooltip: (<span>Gene</span>),
+            tooltip: getGeneColumnTooltip(),
             render: (data: MutationCountByGeneWithCancerGene) => {
-                const addGeneOverlay = () =>
-                    <span>{`Click ${data.hugoGeneSymbol} to ${_.includes(this.props.selectedGenes, data.hugoGeneSymbol) ? 'remove from' : 'add to'} your query`}</span>;
-                const qvalOverlay = () =>
-                    <div><b>MutSig</b><br/><i>Q-value: </i><span>{getQValue(data.qValue)}</span></div>;
-                return (
-                    <div className={styles.displayFlex}>
-                        <DefaultTooltip
-                            placement="left"
-                            overlay={addGeneOverlay}
-                            destroyTooltipOnHide={true}
-                        >
-                            <span
-                                className={classnames(styles.geneSymbol, styles.ellipsisText, data.isCancerGene ? styles.selected : undefined, _.isUndefined(data.qValue) ? undefined : styles.shortenText)}
-                                onClick={() => this.props.onGeneSelect(data.hugoGeneSymbol)}>
-                                {data.hugoGeneSymbol}
-                            </span>
-                        </DefaultTooltip>
-                        <If condition={!_.isUndefined(data.qValue)}>
-                            <DefaultTooltip
-                                placement="right"
-                                overlay={qvalOverlay}
-                                destroyTooltipOnHide={true}
-                            >
-                                    <span><img src={require("./images/mutsig.png")}
-                                               className={styles.mutSig}></img></span>
-                            </DefaultTooltip>
-                        </If>
-                        <If condition={_.includes(this.props.selectedGenes, data.hugoGeneSymbol)}>
-                            <i className='fa fa-check-square-o' style={{marginLeft: 5}}></i>
-                        </If>
-                    </div>
-                )
+                return getGeneColumnRender(
+                    'mutation',
+                    this.props.selectedGenes,
+                    data.hugoGeneSymbol,
+                    data.qValue,
+                    data.isCancerGene,
+                    data.oncokbAnnotated,
+                    data.oncokbOcg,
+                    data.oncokbTsg,
+                    this.props.onGeneSelect
+                );
             },
-            sortBy: (data: MutationCountByGeneWithCancerGene) => data.hugoGeneSymbol,
+            sortBy: (data: MutationCountByGeneWithCancerGene) => getGeneColumnAscSortBy(data.isCancerGene, data.frequency, data.hugoGeneSymbol),
             defaultSortDirection: 'asc' as 'asc',
             filter: (data: MutationCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
                 return data.hugoGeneSymbol.toUpperCase().includes(filterStringUpper);

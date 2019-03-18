@@ -41,7 +41,7 @@
   cursor: pointer;
 }
 
-.selected {
+.cancerGene {
   font-weight: bold
 }
 
@@ -83,7 +83,7 @@
   height: 13px;
 }
 
-.gistic, .mutSig, .cancerGenesRow > img {
+.gistic, .mutsig, .cancerGenesRow > img {
   height: 10px;
   margin-left: 2px;
   vertical-align: inherit !important;

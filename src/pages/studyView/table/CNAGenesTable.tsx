@@ -33,6 +33,7 @@ import {
     getOncoKBTableHeaderTooltip
 } from "../oncokb/OncoKBUtils";
 import {OncokbIconLinkImg} from "../oncokb/OncokbIconLinkImg";
+import {getGeneColumnAscSortBy, getGeneColumnRender, getGeneColumnTooltip} from "../TableUtils";
 
 
 export type  CNAGenesTableUserSelectionWithIndex = CopyNumberAlterationIdentifier & {
@@ -55,7 +56,6 @@ class CNAGenesTableComponent extends FixedHeaderTable<CopyNumberCountByGeneWithC
 
 enum ColumnKey {
     GENE = 'Gene',
-    CANCER_GENES = 'Cancer Genes',
     CYTOBAND = 'Cytoband',
     CNA = 'CNA',
     NUMBER = '#',
@@ -65,11 +65,10 @@ enum ColumnKey {
 @observer
 export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
     @observable private preSelectedRows: CNAGenesTableUserSelectionWithIndex[] = [];
-    @observable private sortBy: string = ColumnKey.CANCER_GENES;
+    @observable private sortBy: string = ColumnKey.FREQ;
     @observable private sortDirection: SortDirection;
     @observable private cellMargin: { [key: string]: number } = {
         [ColumnKey.GENE]: 0,
-        [ColumnKey.CANCER_GENES]: 0,
         [ColumnKey.CYTOBAND]: 0,
         [ColumnKey.CNA]: 0,
         [ColumnKey.NUMBER]: 0,
@@ -101,16 +100,12 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
 
     @computed
     get columnsWidth() {
-        // 20px is reserved for oncokb column
-        const cancerGeneWidth = 40;
-        let availableWidth = this.props.width - cancerGeneWidth;
         return {
-            [ColumnKey.GENE]: correctColumnWidth(availableWidth * 0.25),
-            [ColumnKey.CANCER_GENES]: cancerGeneWidth,
-            [ColumnKey.CYTOBAND]: correctColumnWidth(availableWidth * 0.25),
-            [ColumnKey.CNA]: correctColumnWidth(availableWidth * 0.14),
-            [ColumnKey.NUMBER]: correctColumnWidth(availableWidth * 0.18),
-            [ColumnKey.FREQ]: correctColumnWidth(availableWidth * 0.18),
+            [ColumnKey.GENE]: correctColumnWidth(this.props.width * 0.25),
+            [ColumnKey.CYTOBAND]: correctColumnWidth(this.props.width * 0.25),
+            [ColumnKey.CNA]: correctColumnWidth(this.props.width * 0.14),
+            [ColumnKey.NUMBER]: correctColumnWidth(this.props.width * 0.18),
+            [ColumnKey.FREQ]: correctColumnWidth(this.props.width * 0.18),
         };
     }
 
@@ -139,87 +134,56 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
     get tableColumns() {
         return [{
             name: ColumnKey.GENE,
-            tooltip: (<span>Gene</span>),
-            render: (data: CopyNumberCountByGene) => {
-                const addGeneOverlay = () =>
-                    <span>{`Click ${data.hugoGeneSymbol} to ${_.includes(this.props.selectedGenes, data.hugoGeneSymbol) ? 'remove from' : 'add to'} your query`}</span>;
-                const qvalOverlay = () =>
-                    <div><b>Gistic</b><br/><i>Q-value: </i><span>{getQValue(data.qValue)}</span></div>;
-                return (
-                    <div className={classnames(styles.displayFlex)}>
-                        <DefaultTooltip
-                            placement="left"
-                            overlay={addGeneOverlay}
-                            destroyTooltipOnHide={true}
-                        >
-                            <span
-                                className={classnames(styles.geneSymbol, styles.ellipsisText, _.includes(this.props.selectedGenes, data.hugoGeneSymbol) ? styles.selected : undefined, _.isUndefined(data.qValue) ? undefined : styles.shortenText)}
-                                onClick={() => this.props.onGeneSelect(data.hugoGeneSymbol)}>
-                                {data.hugoGeneSymbol}
-                            </span>
-                        </DefaultTooltip>
-                        <If condition={!_.isUndefined(data.qValue)}>
-                            <DefaultTooltip
-                                placement="right"
-                                overlay={qvalOverlay}
-                                destroyTooltipOnHide={true}
-                            >
-                                    <span><img src={require("./images/gistic.png")}
-                                               className={styles.gistic}></img></span>
-                            </DefaultTooltip>
-                        </If>
-                    </div>
-                )
+            tooltip: getGeneColumnTooltip(),
+            render: (data: CopyNumberCountByGeneWithCancerGene) => {
+                return getGeneColumnRender(
+                    'cna',
+                    this.props.selectedGenes,
+                    data.hugoGeneSymbol,
+                    data.qValue,
+                    data.isCancerGene,
+                    data.oncokbAnnotated,
+                    data.oncokbOcg,
+                    data.oncokbTsg,
+                    this.props.onGeneSelect
+                );
             },
-            sortBy: (data: CopyNumberCountByGene) => data.hugoGeneSymbol,
+            sortBy: (data: CopyNumberCountByGeneWithCancerGene) => getGeneColumnAscSortBy(data.isCancerGene, data.frequency, data.hugoGeneSymbol),
             defaultSortDirection: 'asc' as 'asc',
-            filter: (data: CopyNumberCountByGene, filterString: string, filterStringUpper: string) => {
+            filter: (data: CopyNumberCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
                 return data.hugoGeneSymbol.toUpperCase().includes(filterStringUpper);
             },
-            width: 90
-        }, {
-            name: ColumnKey.CANCER_GENES,
-            headerRender: () => getOncoKBTableHeaderIcon(),
-            tooltip: (getOncoKBTableHeaderTooltip()),
-            render: (data: MutationCountByGeneWithCancerGene) => {
-                return <OncokbIconLinkImg oncokbAnnotated={data.oncokbAnnotated} oncokbOcg={data.oncokbOcg} oncobkbTsg={data.oncokbTsg} isCancerGene={data.isCancerGene} hugoSymbol={data.hugoGeneSymbol}/>
-            },
-            sortBy: (data: MutationCountByGeneWithCancerGene) => getOncoKBTableColumnSortBy(data.isCancerGene, data.frequency),
-            defaultSortDirection: 'desc' as 'desc',
-            filter: (data: MutationCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
-                return getOncoKBTableColumnFilter(data.isCancerGene, filterStringUpper);
-            },
-            width: this.columnsWidth[ColumnKey.CANCER_GENES]
+            width: this.columnsWidth[ColumnKey.GENE]
         }, {
             name: ColumnKey.CYTOBAND,
             tooltip: (<span>Cytoband</span>),
-            render: (data: CopyNumberCountByGene) => <span>{data.cytoband}</span>,
-            sortBy: (data: CopyNumberCountByGene) => data.cytoband,
+            render: (data: CopyNumberCountByGeneWithCancerGene) => <span>{data.cytoband}</span>,
+            sortBy: (data: CopyNumberCountByGeneWithCancerGene) => data.cytoband,
             defaultSortDirection: 'asc' as 'asc',
-            filter: (data: CopyNumberCountByGene, filterString: string, filterStringUpper: string) => {
+            filter: (data: CopyNumberCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
                 return _.isUndefined(data.cytoband) ? false : data.cytoband.toUpperCase().includes(filterStringUpper);
             },
-            width: 105
+            width: this.columnsWidth[ColumnKey.CYTOBAND]
         }, {
             name: ColumnKey.CNA,
             tooltip: (<span>Copy number alteration, only amplifications and deep deletions are shown</span>),
-            render: (data: CopyNumberCountByGene) =>
+            render: (data: CopyNumberCountByGeneWithCancerGene) =>
                 <span style={{color: getCNAColorByAlteration(data.alteration), fontWeight: 'bold'}}>
                     {getCNAByAlteration(data.alteration)}
                 </span>,
-            sortBy: (data: CopyNumberCountByGene) => data.alteration,
+            sortBy: (data: CopyNumberCountByGeneWithCancerGene) => data.alteration,
             defaultSortDirection: 'asc' as 'asc',
-            filter: (data: CopyNumberCountByGene, filterString: string, filterStringUpper: string) => {
+            filter: (data: CopyNumberCountByGeneWithCancerGene, filterString: string, filterStringUpper: string) => {
                 return getCNAByAlteration(data.alteration).includes(filterStringUpper);
             },
-            width: 60
+            width: this.columnsWidth[ColumnKey.CNA]
         }, {
             name: ColumnKey.NUMBER,
             tooltip: (<span>Number of samples with the listed copy number alteration</span>),
             headerRender: () => {
                 return <div style={{marginLeft: this.cellMargin[ColumnKey.NUMBER]}}>#</div>
             },
-            render: (data: CopyNumberCountByGene) =>
+            render: (data: CopyNumberCountByGeneWithCancerGene) =>
                 <LabeledCheckbox
                     checked={this.isChecked(data.entrezGeneId, data.alteration)}
                     disabled={this.isDisabled(data.entrezGeneId, data.alteration)}
@@ -238,30 +202,30 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
                 >
                     {data.countByEntity.toLocaleString()}
                 </LabeledCheckbox>,
-            sortBy: (data: CopyNumberCountByGene) => data.countByEntity,
+            sortBy: (data: CopyNumberCountByGeneWithCancerGene) => data.countByEntity,
             defaultSortDirection: 'desc' as 'desc',
-            filter: (data: CopyNumberCountByGene, filterString: string) => {
+            filter: (data: CopyNumberCountByGeneWithCancerGene, filterString: string) => {
                 return _.toString(data.countByEntity).includes(filterString);
             },
-            width: 75
+            width: this.columnsWidth[ColumnKey.NUMBER]
         }, {
             name: ColumnKey.FREQ,
             tooltip: (<span>Percentage of samples with the listed copy number alteration</span>),
             headerRender: () => {
                 return <div style={{marginLeft: this.cellMargin[ColumnKey.FREQ]}}>Freq</div>
             },
-            render: (data: CopyNumberCountByGene) => <span
+            render: (data: CopyNumberCountByGeneWithCancerGene) => <span
                 style={{
                     flexDirection: 'row-reverse',
                     display: 'flex',
                     marginRight: this.cellMargin[ColumnKey.FREQ]
                 }}>{getFrequencyStr(data.frequency)}</span>,
-            sortBy: (data: CopyNumberCountByGene) => data.frequency,
+            sortBy: (data: CopyNumberCountByGeneWithCancerGene) => data.frequency,
             defaultSortDirection: 'desc' as 'desc',
-            filter: (data: CopyNumberCountByGene, filterString: string) => {
+            filter: (data: CopyNumberCountByGeneWithCancerGene, filterString: string) => {
                 return _.toString(getFrequencyStr(data.frequency)).includes(filterString);
             },
-            width: 70
+            width: this.columnsWidth[ColumnKey.FREQ]
         }]
     };
 
@@ -287,7 +251,7 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
         if (_.isUndefined(record)) {
             let dataIndex = -1;
             // definitely there is a match
-            let datum: CopyNumberCountByGene | undefined = _.find(this.props.promise.result, (row: CopyNumberCountByGene, index: number) => {
+            let datum: CopyNumberCountByGeneWithCancerGene | undefined = _.find(this.props.promise.result, (row: CopyNumberCountByGeneWithCancerGene, index: number) => {
                 let exist = row.entrezGeneId === entrezGeneId && row.alteration === alteration;
                 if (exist) {
                     dataIndex = index;
@@ -326,7 +290,7 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
         if (this.props.filters.length === 0) {
             return [];
         } else {
-            return _.reduce(this.props.promise.result, (acc: CNAGenesTableUserSelectionWithIndex[], row: CopyNumberCountByGene, index: number) => {
+            return _.reduce(this.props.promise.result, (acc: CNAGenesTableUserSelectionWithIndex[], row: CopyNumberCountByGeneWithCancerGene, index: number) => {
                 if (_.some(this.props.filters, {entrezGeneId: row.entrezGeneId, alteration: row.alteration})) {
                     acc.push({
                         rowIndex: index,
@@ -341,7 +305,7 @@ export class CNAGenesTable extends React.Component<ICNAGenesTablePros, {}> {
     }
 
     @autobind
-    isSelectedRow(data: CopyNumberCountByGene) {
+    isSelectedRow(data: CopyNumberCountByGeneWithCancerGene) {
         return !_.isUndefined(_.find(_.union(this.selectedRows, this.preSelectedRows), function (row) {
             return row.entrezGeneId === data.entrezGeneId && row.alteration === data.alteration;
         }));
