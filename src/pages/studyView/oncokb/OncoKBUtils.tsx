@@ -1,6 +1,7 @@
 import * as React from "react";
 import styles from "../table/tables.module.scss";
 import {getOncoKbImage} from "../../../shared/components/tracks/OncoKbTrack";
+import {If, Then, Else} from 'react-if';
 
 const ONCOKB_URL = "https://oncokb.org";
 export function getOncoKBTableHeaderIcon() {
@@ -27,14 +28,20 @@ export function getOncoKBReferenceInfo(hugoGeneSymbol: string, isCancerGene: boo
             content = `${content} ${subContent.join(' and ')}`;
         }
         return <span>
-            <span>{hugoGeneSymbol} is included in the </span>
+            <If condition={oncokbAnnotated}>
+                <Then>
+                    <a href={`${ONCOKB_URL}/gene/${hugoGeneSymbol}`} target="_blank" style={{marginLeft: 5}}>
+                        {hugoGeneSymbol}
+                    </a>
+                </Then>
+                <Else>
+                    <span>{hugoGeneSymbol}</span>
+                </Else>
+            </If>
+            <span> is included in the </span>
             <a href={`${ONCOKB_URL}/cancerGenes`} target="_blank"> OncoKB Cancer Gene List</a>
             {(isOncogene || isTSG) && (
                 <span>{content}</span>
-            )}
-            {oncokbAnnotated && (
-                <a href={`${ONCOKB_URL}/gene/${hugoGeneSymbol}`} target="_blank" style={{marginLeft: 5}}><i
-                    className="fa fa-external-link"></i></a>
             )}
             .
         </span>
