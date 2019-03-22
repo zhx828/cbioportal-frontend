@@ -33,6 +33,7 @@ import {
     getGeneColumnRender,
     getGeneColumnTooltip
 } from "../TableUtils";
+import {GeneCell} from "./GeneCell";
 
 export interface IMutatedGenesTablePros {
     promise: MobxPromise<MutationCountByGeneWithCancerGene[]>;
@@ -135,17 +136,17 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
             name: ColumnKey.GENE,
             tooltip: getGeneColumnTooltip(),
             render: (data: MutationCountByGeneWithCancerGene) => {
-                return getGeneColumnRender(
-                    'mutation',
-                    this.props.selectedGenes,
-                    data.hugoGeneSymbol,
-                    data.qValue,
-                    data.isCancerGene,
-                    data.oncokbAnnotated,
-                    data.oncokbOcg,
-                    data.oncokbTsg,
-                    this.props.onGeneSelect
-                );
+                return <GeneCell
+                    tableType={'mutation'}
+                    selectedGenes={this.props.selectedGenes}
+                    hugoGeneSymbol={data.hugoGeneSymbol}
+                    qValue={data.qValue}
+                    isCancerGene={data.isCancerGene}
+                    oncokbAnnotated={data.oncokbAnnotated}
+                    isOncogene={data.oncokbOcg}
+                    isTSG={data.oncokbTsg}
+                    onGeneSelect={this.props.onGeneSelect}
+                />
             },
             sortBy: (data: MutationCountByGeneWithCancerGene) => getGeneColumnAscSortBy(data.isCancerGene, data.frequency, data.hugoGeneSymbol),
             defaultSortDirection: 'asc' as 'asc',
