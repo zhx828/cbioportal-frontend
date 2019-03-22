@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 import styles from "./tables.module.scss";
 import classnames from 'classnames';
 import DefaultTooltip from "../../../shared/components/defaultTooltip/DefaultTooltip";
-import {getGeneColumnCellOverlay} from "../TableUtils";
+import {getGeneColumnCellOverlay, getGeneColumnCellOverlaySimple} from "../TableUtils";
 import {getQValue} from "../StudyViewUtils";
 import {action, observable} from 'mobx';
 import {observer} from 'mobx-react';
@@ -43,11 +43,14 @@ export class GeneCell extends React.Component<IGeneCellProps, {}> {
             <DefaultTooltip
                 mouseEnterDelay={0}
                 placement="left"
-                onVisibleChange={this.onVisibleChange}
-                overlay={getGeneColumnCellOverlay(this.props.hugoGeneSymbol, geneIsSelected, this.props.isCancerGene, this.props.oncokbAnnotated, this.props.isOncogene, this.props.isTSG)}
+                // onVisibleChange={this.onVisibleChange}
+                disabled={!this.props.isCancerGene}
+                overlay={getGeneColumnCellOverlaySimple(this.props.hugoGeneSymbol, geneIsSelected, this.props.isCancerGene, this.props.oncokbAnnotated, this.props.isOncogene, this.props.isTSG)}
                 destroyTooltipOnHide={true}
             >
                 <div className={classnames(styles.geneSymbol, styles.displayFlex)}
+                     onMouseEnter={()=>this.onVisibleChange(true)}
+                     onMouseLeave={()=>this.onVisibleChange(false)}
                      onClick={() => this.props.onGeneSelect(this.props.hugoGeneSymbol)}>
                 <span
                     className={classnames(styles.ellipsisText, this.props.isCancerGene ? styles.cancerGene : undefined, _.isUndefined(this.props.qValue) ? undefined : styles.shortenText)}>

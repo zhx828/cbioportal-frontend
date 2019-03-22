@@ -35,6 +35,14 @@ export function getGeneColumnCellOverlay(hugoGeneSymbol: string, geneIsSelected:
     return <div style={{display: 'flex', flexDirection: 'column', maxWidth: 300, fontSize: 12}}>{content}</div>;
 }
 
+export function getGeneColumnCellOverlaySimple(hugoGeneSymbol: string, geneIsSelected: boolean, isCancerGene: boolean, oncokbAnnotated: boolean, isOncogene: boolean, isTSG: boolean) {
+    return <div style={{display: 'flex', flexDirection: 'column', maxWidth: 300, fontSize: 12}}>
+        <span>
+            {getOncoKBReferenceInfo(hugoGeneSymbol, isCancerGene, oncokbAnnotated, isOncogene, isTSG)}
+        </span>
+    </div>;
+}
+
 export function getGeneColumnAscSortBy(isCancerGene: boolean, frequency: number, hugoGeneSymbol: string) {
     return [isCancerGene ? '0' : '1', (100 - frequency).toString(), hugoGeneSymbol];
 }
@@ -48,6 +56,7 @@ export function getGeneColumnRender(tableType: 'mutation' | 'cna', selectedGenes
     return (
         <div className={classnames(styles.displayFlex)}>
             <DefaultTooltip
+                mouseEnterDelay={0}
                 placement="left"
                 overlay={getGeneColumnCellOverlay(hugoGeneSymbol, geneIsSelected, isCancerGene, oncokbAnnotated, isOncogene, isTSG)}
                 destroyTooltipOnHide={true}
