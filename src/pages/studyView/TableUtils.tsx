@@ -21,13 +21,13 @@ export function getGeneColumnTooltip() {
 }
 
 export function getGeneColumnHeaderReder(cellMargin: number, headerName: string, isFilteredByCancerGeneList: boolean, cancerGeneIconToggle: (event: any) => void) {
-    return <div style={{marginLeft: cellMargin, display: 'flex'}}>
+    return <div style={{marginLeft: cellMargin}} className={styles.displayFlex}>
         <DefaultTooltip
             mouseEnterDelay={0}
             placement="top"
             overlay={getCancerGeneToggledOverlay(isFilteredByCancerGeneList)}
         >
-            <div onClick={cancerGeneIconToggle} style={{display: 'flex', alignContent: 'center'}}>
+            <div onClick={cancerGeneIconToggle} className={styles.displayFlex}>
                 {getCancerGeneFilterToggleIcon(isFilteredByCancerGeneList)}
             </div>
         </DefaultTooltip>
@@ -65,7 +65,7 @@ export function getCancerGeneToggledOverlay(cancerGeneFilterEnabled:boolean) {
 
 
 export function getCancerGeneFilterToggleIcon(isFilteredByCancerGeneList:boolean) {
-    return <span className={styles.cancerGeneIcon} style={{filter: isFilteredByCancerGeneList ? null : 'brightness(0.1)'}}>{getOncoKbImage()}</span>;
+    return <span className={classnames(styles.cancerGeneIcon, styles.displayFlex)} style={{filter: isFilteredByCancerGeneList ? null : 'brightness(0.1)'}}>{getOncoKbImage()}</span>;
 }
 
 export function getGeneColumnAscSortBy(isCancerGene: boolean, frequency: number, hugoGeneSymbol: string) {

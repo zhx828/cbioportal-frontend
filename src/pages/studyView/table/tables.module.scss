@@ -1,3 +1,4 @@
+$study-view-table-icon-size: 10px;
 
 .studyViewTablesTable {
   display: flex;
@@ -79,17 +80,15 @@
 }
 
 .cancerGeneIcon {
-  display: flex;
-  align-content: center;
   margin-right: 5px;
 }
 
 .cancerGeneIcon > img {
-  height: 11px;
+  height: $study-view-table-icon-size;
 }
 
 .gistic, .mutsig, .cancerGenesRow > img {
-  height: 10px;
+  height: $study-view-table-icon-size;
   margin-left: 2px;
   vertical-align: inherit !important;
 }
