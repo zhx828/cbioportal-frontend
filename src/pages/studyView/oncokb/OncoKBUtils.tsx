@@ -27,7 +27,7 @@ export function getOncoKBReferenceInfo(hugoGeneSymbol: string, isCancerGene: boo
         return <span>
             <If condition={oncokbAnnotated}>
                 <Then>
-                    <a href={`${ONCOKB_URL}/gene/${hugoGeneSymbol}`} target="_blank" style={{marginLeft: 5}}>
+                    <a href={`${ONCOKB_URL}/gene/${hugoGeneSymbol}`} target="_blank">
                         {hugoGeneSymbol}
                     </a>
                 </Then>

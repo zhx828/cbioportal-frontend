@@ -80,11 +80,12 @@
 
 .cancerGeneIcon {
   display: flex;
+  align-content: center;
   margin-right: 5px;
 }
 
 .cancerGeneIcon > img {
-  height: 13px;
+  height: 11px;
 }
 
 .gistic, .mutsig, .cancerGenesRow > img {

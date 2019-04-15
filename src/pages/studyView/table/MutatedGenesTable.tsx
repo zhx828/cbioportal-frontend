@@ -22,7 +22,7 @@ import {
 import {Column, SortDirection} from "../../../shared/components/lazyMobXTable/LazyMobXTable";
 import {
     getCancerGeneFilterToggleIcon,
-    getCancerGeneToggledOverlay,
+    getCancerGeneToggledOverlay, getGeneColumnHeaderReder,
 } from "../TableUtils";
 import {GeneCell} from "./GeneCell";
 
@@ -57,7 +57,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
     @observable private preSelectedRows: MutatedGenesTableUserSelectionWithIndex[] = [];
     @observable private sortBy: string = ColumnKey.FREQ;
     @observable private sortDirection: SortDirection;
-    @observable private cancerGeneFilterIsOn = true;
+    @observable private isFilteredByCancerGeneList = true;
 
     private reactions:IReactionDisposer[] = [];
 
@@ -107,13 +107,13 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
     }
 
     @autobind
-    toggelCancerGeneFilter(event:any) {
+    toggleCancerGeneFilter(event:any) {
         event.stopPropagation();
-        this.cancerGeneFilterIsOn=!this.cancerGeneFilterIsOn;
+        this.isFilteredByCancerGeneList=!this.isFilteredByCancerGeneList;
     }
 
     @computed get tableData() {
-        return this.cancerGeneFilterIsOn ? _.filter(this.props.promise.result, data => data.isCancerGene) : (this.props.promise.result || []);
+        return this.isFilteredByCancerGeneList ? _.filter(this.props.promise.result, data => data.isCancerGene) : (this.props.promise.result || []);
     }
 
 
@@ -122,18 +122,7 @@ export class MutatedGenesTable extends React.Component<IMutatedGenesTablePros, {
         return [{
             name: ColumnKey.GENE,
             headerRender: () => {
-                return <div style={{marginLeft: this.cellMargin[ColumnKey.GENE], display: 'flex'}}>
-                    <DefaultTooltip
-                        mouseEnterDelay={0}
-                        placement="top"
-                        overlay={getCancerGeneToggledOverlay(this.cancerGeneFilterIsOn)}
-                    >
-                        <div onClick={this.toggelCancerGeneFilter}>
-                            {getCancerGeneFilterToggleIcon(this.cancerGeneFilterIsOn)}
-                        </div>
-                    </DefaultTooltip>
-                    {ColumnKey.GENE}
-                </div>
+                return getGeneColumnHeaderReder(this.cellMargin[ColumnKey.GENE], ColumnKey.GENE, this.isFilteredByCancerGeneList, this.toggleCancerGeneFilter);
             },
             render: (data: MutationCountByGeneWithCancerGene) => {
                 return <GeneCell

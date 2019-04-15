@@ -20,6 +20,21 @@ export function getGeneColumnTooltip() {
     )
 }
 
+export function getGeneColumnHeaderReder(cellMargin: number, headerName: string, isFilteredByCancerGeneList: boolean, cancerGeneIconToggle: (event: any) => void) {
+    return <div style={{marginLeft: cellMargin, display: 'flex'}}>
+        <DefaultTooltip
+            mouseEnterDelay={0}
+            placement="top"
+            overlay={getCancerGeneToggledOverlay(isFilteredByCancerGeneList)}
+        >
+            <div onClick={cancerGeneIconToggle} style={{display: 'flex', alignContent: 'center'}}>
+                {getCancerGeneFilterToggleIcon(isFilteredByCancerGeneList)}
+            </div>
+        </DefaultTooltip>
+        {headerName}
+    </div>
+}
+
 export function getGeneColumnCellOverlay(hugoGeneSymbol: string, geneIsSelected: boolean, isCancerGene: boolean, oncokbAnnotated: boolean, isOncogene: boolean, isTSG: boolean) {
     let content = [
         <span style={{fontSize: 13}}>

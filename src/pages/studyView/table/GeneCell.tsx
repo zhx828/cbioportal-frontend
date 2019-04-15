@@ -41,7 +41,6 @@ export class GeneCell extends React.Component<IGeneCellProps, {}> {
 
         return (
             <DefaultTooltip
-                mouseEnterDelay={0}
                 placement="left"
                 // onVisibleChange={this.onVisibleChange}
                 disabled={!this.props.isCancerGene}
