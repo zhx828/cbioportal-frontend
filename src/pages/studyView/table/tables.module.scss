@@ -78,7 +78,12 @@
   background-color: #d3d3d3;
 }
 
-.cancerGenesHeader > img {
+.cancerGeneIcon {
+  display: flex;
+  margin-right: 5px;
+}
+
+.cancerGeneIcon > img {
   height: 13px;
 }
 

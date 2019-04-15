@@ -4,9 +4,6 @@ import {getOncoKbImage} from "../../../shared/components/tracks/OncoKbTrack";
 import {If, Then, Else} from 'react-if';
 
 const ONCOKB_URL = "https://oncokb.org";
-export function getOncoKBTableHeaderIcon() {
-    return <span className={styles.cancerGenesHeader}>{getOncoKbImage('oncogenic-black')}</span>
-}
 
 export function getOncoKBTableHeaderTooltip() {
     return <span>The gene is in <a href={`${ONCOKB_URL}/cancerGenes`} target="_blank">OncoKB Cancer Gene List</a></span>;
@@ -39,7 +36,7 @@ export function getOncoKBReferenceInfo(hugoGeneSymbol: string, isCancerGene: boo
                 </Else>
             </If>
             <span> is included in the </span>
-            <a href={`${ONCOKB_URL}/cancerGenes`} target="_blank"> OncoKB Cancer Gene List</a>
+            {getOncoKBCancerGeneListLinkout()}
             {(isOncogene || isTSG) && (
                 <span>{content}</span>
             )}
@@ -51,6 +48,10 @@ export function getOncoKBReferenceInfo(hugoGeneSymbol: string, isCancerGene: boo
 
 export function getOncoKBTableColumnSortBy(isCancerGene: boolean, frequency: number) {
     return (isCancerGene ? 1 : 0) + frequency / 100
+}
+
+export function getOncoKBCancerGeneListLinkout() {
+    return <a href={`${ONCOKB_URL}/cancerGenes`} target="_blank">OncoKB Cancer Gene List</a>;
 }
 
 export function getOncoKBTableColumnFilter(isCancerGene: boolean, filterStringUpper: string) {

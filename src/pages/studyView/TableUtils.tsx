@@ -1,11 +1,12 @@
 import * as React from 'react';
 import * as _ from "lodash";
-import {getOncoKBReferenceInfo} from "./oncokb/OncoKBUtils";
+import {getOncoKBCancerGeneListLinkout, getOncoKBReferenceInfo} from "./oncokb/OncoKBUtils";
 import {getQValue} from "./StudyViewUtils";
 import styles from "./table/tables.module.scss";
 import classnames from 'classnames';
 import DefaultTooltip from "../../shared/components/defaultTooltip/DefaultTooltip";
 import {If} from 'react-if';
+import {getOncoKbImage} from "shared/components/tracks/OncoKbTrack";
 
 export function getGeneColumnTooltip() {
     return (
@@ -41,6 +42,15 @@ export function getGeneColumnCellOverlaySimple(hugoGeneSymbol: string, geneIsSel
             {getOncoKBReferenceInfo(hugoGeneSymbol, isCancerGene, oncokbAnnotated, isOncogene, isTSG)}
         </span>
     </div>;
+}
+
+export function getCancerGeneToggledOverlay(cancerGeneFilterEnabled:boolean) {
+    return <span>The table is{cancerGeneFilterEnabled ? '' : ' not'} filtered by {getOncoKBCancerGeneListLinkout()}</span>
+}
+
+
+export function getCancerGeneFilterToggleIcon(isFilteredByCancerGeneList:boolean) {
+    return <span className={styles.cancerGeneIcon} style={{filter: isFilteredByCancerGeneList ? null : 'brightness(0.1)'}}>{getOncoKbImage()}</span>;
 }
 
 export function getGeneColumnAscSortBy(isCancerGene: boolean, frequency: number, hugoGeneSymbol: string) {
