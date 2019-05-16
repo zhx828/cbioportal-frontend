@@ -42,7 +42,6 @@ export class GeneCell extends React.Component<IGeneCellProps, {}> {
         return (
             <DefaultTooltip
                 placement="left"
-                // onVisibleChange={this.onVisibleChange}
                 disabled={!this.props.isCancerGene}
                 overlay={getGeneColumnCellOverlaySimple(this.props.hugoGeneSymbol, geneIsSelected, this.props.isCancerGene, this.props.oncokbAnnotated, this.props.isOncogene, this.props.isTSG)}
                 destroyTooltipOnHide={true}

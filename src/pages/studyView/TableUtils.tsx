@@ -6,7 +6,6 @@ import styles from "./table/tables.module.scss";
 import classnames from 'classnames';
 import DefaultTooltip from "../../shared/components/defaultTooltip/DefaultTooltip";
 import {If} from 'react-if';
-import {getOncoKbImage} from "shared/components/tracks/OncoKbTrack";
 
 export function getGeneColumnTooltip() {
     return (
@@ -59,13 +58,17 @@ export function getGeneColumnCellOverlaySimple(hugoGeneSymbol: string, geneIsSel
     </div>;
 }
 
-export function getCancerGeneToggledOverlay(cancerGeneFilterEnabled:boolean) {
-    return <span>The table is{cancerGeneFilterEnabled ? '' : ' not'} filtered by {getOncoKBCancerGeneListLinkout()}</span>
+export function getCancerGeneToggledOverlay(cancerGeneFilterEnabled: boolean) {
+    if (cancerGeneFilterEnabled) {
+        return <span>Filtered by {getOncoKBCancerGeneListLinkout()}. Click to show all genes.</span>
+    } else {
+        return <span>Showing all genes. Click to filter by {getOncoKBCancerGeneListLinkout()}</span>
+    }
 }
 
 
 export function getCancerGeneFilterToggleIcon(isFilteredByCancerGeneList:boolean) {
-    return <span className={classnames(styles.cancerGeneIcon, styles.displayFlex)} style={{filter: isFilteredByCancerGeneList ? null : 'brightness(0.1)'}}>{getOncoKbImage()}</span>;
+    return <span className={classnames(styles.cancerGeneIcon, styles.displayFlex)} style={{color: isFilteredByCancerGeneList ? 'black' : 'grey'}}><i className='fa fa-filter'></i></span>;
 }
 
 export function getGeneColumnAscSortBy(isCancerGene: boolean, frequency: number, hugoGeneSymbol: string) {
