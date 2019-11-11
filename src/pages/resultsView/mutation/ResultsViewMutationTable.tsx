@@ -119,15 +119,19 @@ export default class ResultsViewMutationTable extends MutationTable<IResultsView
             return !this.props.uniqueSampleKeyToTumorType;
         };
 
-        this._columns[MutationTableColumnType.CLONAL].shouldExclude = () => {
+        this._columns[MutationTableColumnType.CLONAL].shouldExclude = ()=> {
             return !this.hasCcfMCopies;
         };
 
-        this._columns[MutationTableColumnType.CANCER_CELL_FRACTION].shouldExclude = () => {
+        this._columns[MutationTableColumnType.ASCN_METHOD].shouldExclude = ()=> {
+            return !this.hasASCNMethod;
+        }
+
+        this._columns[MutationTableColumnType.CANCER_CELL_FRACTION].shouldExclude = ()=> {
             return !this.hasCcfMCopies;
         };
 
-        this._columns[MutationTableColumnType.MUTANT_COPIES].shouldExclude = () => {
+        this._columns[MutationTableColumnType.MUTANT_COPIES].shouldExclude = ()=> {
             return !this.hasMutantCopies;
         };
 
@@ -151,11 +155,25 @@ export default class ResultsViewMutationTable extends MutationTable<IResultsView
         }
         return data.some((row:Mutation[]) => {
             return row.some((m:Mutation) => {
-                return (true || m.alleleSpecificCopyNumber !== undefined && m.alleleSpecificCopyNumber.ccfMCopies !== undefined);
+                return (m.alleleSpecificCopyNumber !== undefined && m.alleleSpecificCopyNumber.ccfMCopies !== undefined);
             });
         });
     }
 
+    @computed private get hasASCNMethod():boolean {
+        let data:Mutation[][] = [];
+        if (this.props.dataStore) {
+            data = this.props.dataStore.allData;
+        } else if (this.props.data) {
+            data = this.props.data;
+        }
+        return data.some((row:Mutation[]) => {
+            return row.some((m:Mutation) => {
+                return (m.alleleSpecificCopyNumber !== undefined && m.alleleSpecificCopyNumber.ascnMethod !== undefined);
+            });
+        });
+    }
+ 
     @computed private get hasMutantCopies():boolean {
         let data:Mutation[][] = [];
         let clinicalData:{[sampleId:string]:ClinicalData[]} = {};

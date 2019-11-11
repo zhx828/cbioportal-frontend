@@ -225,6 +225,10 @@ export default class PatientViewMutationTable extends MutationTable<IPatientView
         this._columns[MutationTableColumnType.CLONAL].shouldExclude = ()=>{
             return !this.hasCcfMCopies;
         };
+        
+        this._columns[MutationTableColumnType.ASCN_METHOD].shouldExclude =()=> {
+            return !this.hasASCNMethod;
+        }
 
         this._columns[MutationTableColumnType.CANCER_CELL_FRACTION].shouldExclude = ()=>{
             return !this.hasCcfMCopies;
@@ -255,6 +259,20 @@ export default class PatientViewMutationTable extends MutationTable<IPatientView
         return data.some((row:Mutation[]) => {
             return row.some((m:Mutation) => {
                 return (m.alleleSpecificCopyNumber !== undefined && !floatValueIsNA(m.alleleSpecificCopyNumber.ccfMCopies));
+            });
+        });
+    }
+
+    @computed private get hasASCNMethod(): boolean {
+        let data:Mutation[][] = [];
+        if (this.props.data) {
+            data = this.props.data;
+        } else if (this.props.dataStore) {
+            data = this.props.dataStore.allData;
+        }
+        return data.some((row:Mutation[]) => {
+            return row.some((m:Mutation) => {
+                return (m.alleleSpecificCopyNumber !== undefined && m.alleleSpecificCopyNumber.ascnMethod !== undefined);
             });
         });
     }
