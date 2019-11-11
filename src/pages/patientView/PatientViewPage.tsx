@@ -479,6 +479,7 @@ export default class PatientViewPage extends React.Component<IPatientViewPagePro
                                          && this.patientViewPageStore.uncalledMutationData.isComplete
                                          && this.patientViewPageStore.studyIdToStudy.isComplete
                                          && this.patientViewPageStore.sampleToMutationGenePanelId.isComplete
+                                         && this.patientViewPageStore.clinicalDataGroupedBySampleMap.isComplete
                                          && !!sampleManager) && (
                                             <div data-test="patientview-mutation-table">
                                                 <PatientViewMutationTable
