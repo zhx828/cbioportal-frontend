@@ -29,7 +29,7 @@ export default class PatientClonalColumnFormatter {
         // single value: just add the actual value only
         let tdValue = null;
         if (!samplesWithValue) {
-            return (<span></span>);
+            return <span />;
         } else if (samplesWithValue.length === 1) {
             tdValue = PatientClonalColumnFormatter.getClonalListElement(samplesWithValue[0], sampleToValue[samplesWithValue[0]], sampleToCCF[samplesWithValue[0]], sampleManager);
         }
@@ -101,7 +101,7 @@ export default class PatientClonalColumnFormatter {
 
     public static renderFunction(mutations:Mutation[], sampleIds:string[], sampleManager:SampleManager|null) {
         if (!sampleManager) {
-            return (<span></span>);
+            return <span />;
         }
         return PatientClonalColumnFormatter.getDisplayValue(mutations, sampleIds, sampleManager);
     }

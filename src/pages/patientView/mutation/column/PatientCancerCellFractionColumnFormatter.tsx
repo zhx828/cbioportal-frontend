@@ -35,9 +35,11 @@ export default class PatientCancerCellFractionColumnFormatter {
             const barY = PatientCancerCellFractionColumnFormatter.maxBarHeight - barHeight;
 
             const bar = (<rect x={barX} y={barY} width={PatientCancerCellFractionColumnFormatter.barWidth} height={barHeight} fill={color}/>);
-            const text = (<span>
+            const text = (
+                <span>
                     <strong>{ccfMCopies.toFixed(2)}</strong>
-                </span>);
+                </span>
+            );
             return {
                 sampleId:mutation.sampleId, bar, component:sampleComponent, text, ccfMCopies
             };
@@ -46,7 +48,7 @@ export default class PatientCancerCellFractionColumnFormatter {
 
     public static renderFunction(mutations:Mutation[], sampleManager:SampleManager|null) {
         if (!sampleManager) {
-            return (<span></span>);
+            return <span />;
         }
 
         // for every sample of the selected patient

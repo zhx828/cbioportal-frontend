@@ -89,7 +89,11 @@ export default class PatientASCNCopyNumberColumnFormatter {
         const lcn = mutation.alleleSpecificCopyNumber.minorCopyNumber;
         const mcn:number = tcn - lcn;
         let ascnTooltip = PatientASCNCopyNumberColumnFormatter.getASCNCall(mcn, lcn, wgd).toLowerCase()
-        return (<span>{componentBySample} <b>{ascnTooltip}</b> ({wgd} with total copy number of {tcn.toString(10)} and a minor copy number of {lcn.toString(10)})</span>);
+        return (
+            <span>
+                {componentBySample} <b>{ascnTooltip}</b> ({wgd} with total copy number of {tcn.toString(10)} and a minor copy number of {lcn.toString(10)})
+            </span>
+        );
     }
 
     // gets the FACETES call (e.g tetraploid, amp, cnloh)
@@ -111,7 +115,7 @@ export default class PatientASCNCopyNumberColumnFormatter {
         const displayValuesBySample:{[key:string]:JSX.Element} = PatientASCNCopyNumberColumnFormatter.getElementsForMutations(data, sampleIdToClinicalDataMap, sampleManager);
         const sampleIdsWithElements = sampleIds.filter(sampleId => displayValuesBySample[sampleId]);
         if (!sampleIdsWithElements) {
-            return (<span></span>);
+            return <span />;
         } else {
             // map to sampleIds instead of sampleIdsWithElements so that each icon will line up
             // positionally (e.g col 1 will always be sample 1, col 2 will always be sample 2
@@ -123,9 +127,9 @@ export default class PatientASCNCopyNumberColumnFormatter {
                 } else {
                     displayElement = displayValuesBySample[sampleId];
                 }
-                // if current item is not last samle in list, seperate withs space
+                // if current item is not last sample in list, separate with space
                 if (sampleIdsWithElements.indexOf(sampleId) !== (sampleIdsWithElements.length -1)) {
-                    return <li>{displayElement}<span style={{fontSize:"small"}}>{""}</span></li>;
+                    return <li>{displayElement}<span style={{fontSize:"small"}}> </span></li>;
                 }
                 return <li>{displayElement}</li>;
             })
@@ -159,18 +163,17 @@ export default class PatientASCNCopyNumberColumnFormatter {
         let cnaDataValue = null;
         if (ascnCopyNumberData === "NA") {
             cnaDataValue = PatientASCNCopyNumberColumnFormatter.formatASCNCopyNumberData(ascnCopyNumberData, "NA", wgd);
-            return cnaDataValue
+            return cnaDataValue;
         } else {
             cnaDataValue = PatientASCNCopyNumberColumnFormatter.formatASCNCopyNumberData(ascnCopyNumberData.toString(), mutation.alleleSpecificCopyNumber.totalCopyNumber, wgd);
         }
         const cnaToolTip = PatientASCNCopyNumberColumnFormatter.getASCNCopyNumberTooltip(mutation, sampleIdToClinicalDataMap, sampleManager);
-        return (<DefaultTooltip placement="left"
+        return <DefaultTooltip placement="left"
                     overlay={cnaToolTip}
                     arrowContent={<div className="rc-tooltip-arrow-inner"/>}
                 >
                     {cnaDataValue}
-                </DefaultTooltip>
-        );
+                </DefaultTooltip>;
     }
 
     // returns an element (rounded rectangle with tcn inside - coloring based on FACETS CopyNumber number equivalent)

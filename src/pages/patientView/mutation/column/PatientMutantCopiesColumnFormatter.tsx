@@ -85,14 +85,14 @@ export default class PatientMutantCopiesColumnFormatter {
 
     public static renderFunction(data:Mutation[], sampleIdToClinicalDataMap:{[sampleId:string]:ClinicalData[]}|undefined, sampleIds:string[], sampleManager:SampleManager|null) {
         if (!sampleManager) {
-            return (<span></span>);
+            return <span />;
         }
         // get display text values map (sampleid -> value), list of sample ids with values in 'displayValuesBySample', and calculate tooltip by sample
         const displayValuesBySample:{[key: string]: string} = PatientMutantCopiesColumnFormatter.getDisplayValue(data, sampleIdToClinicalDataMap, sampleIds);
         const sampleIdsWithValues = sampleIds.filter(sampleId => displayValuesBySample[sampleId]);
         const toolTipBySample:{[key: string]: string} = PatientMutantCopiesColumnFormatter.getMutantCopiesToolTip(data, sampleIdToClinicalDataMap, sampleIdsWithValues);
         if (!sampleIdsWithValues) {
-            return (<span></span>);
+            return <span />;
         } else {
             let content = sampleIdsWithValues.map((sampleId:string) => {
                 let textValue = displayValuesBySample[sampleId];
@@ -101,7 +101,21 @@ export default class PatientMutantCopiesColumnFormatter {
                     textValue = textValue + "; ";
                 }
                 let componentBySample = sampleManager.getComponentForSample(sampleId, 1, "");
-                return <li><DefaultTooltip overlay={<span key={sampleId}>{componentBySample} {toolTipBySample[sampleId]}</span>} placement='left' arrowContent={<div className="rc-tooltip-arrow-inner"/>}><span>{textValue}</span></DefaultTooltip></li>
+                return (
+                    <li>
+                        <DefaultTooltip 
+                            overlay={
+                                <span key={sampleId}>
+                                    {componentBySample} {toolTipBySample[sampleId]}
+                                </span>
+                            }
+                            placement='left'
+                            arrowContent={<div className="rc-tooltip-arrow-inner"/>}
+                        >
+                            <span>{textValue}</span>
+                        </DefaultTooltip>
+                    </li>
+                );
             })
             return (
              <span style={{display:'inline-block', minWidth:100}}>

@@ -50,7 +50,7 @@ export default class CancerCellFractionColumnFormatter {
     public static renderFunction(data:Mutation[]) {
         // use text for all purposes (display, sort, filter)
         const text:string = CancerCellFractionColumnFormatter.getDisplayValue(data);
-        let content = <span>{text}</span>;
+        return <span>{text}</span>;
         return content;
     }
     

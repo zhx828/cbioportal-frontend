@@ -46,7 +46,7 @@ export default class ClonalColumnFormatter {
         // single value: just add the actual value only
         let tdValue = null;
         if (!samplesWithValue) {
-            return (<span></span>);
+            return <span />;
         } else if (samplesWithValue.length === 1) {
             tdValue = ClonalColumnFormatter.getClonalListElement(samplesWithValue[0], sampleToValue[samplesWithValue[0]], sampleToCCF[samplesWithValue[0]]);
         }

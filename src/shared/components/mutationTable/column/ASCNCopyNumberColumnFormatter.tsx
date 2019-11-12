@@ -80,13 +80,17 @@ export default class ASCNCopyNumberColumnFormatter {
             }
         }
         if (!ASCNCopyNumberColumnFormatter.hasRequiredAscnData(mutation) || wgd === null) {
-            return (<span><b>NA</b></span>);
+            return <span><b>NA</b></span>;
         }
         const tcn = mutation.alleleSpecificCopyNumber.totalCopyNumber;
         const lcn = mutation.alleleSpecificCopyNumber.minorCopyNumber;
         const mcn:number = tcn - lcn;
         let ascnTooltip = ASCNCopyNumberColumnFormatter.getAscnCall(mcn, lcn, wgd).toLowerCase()
-        return (<span><b>{ascnTooltip}</b> ({wgd} with total copy number of {tcn.toString(10)} and a minor copy number of {lcn.toString(10)})</span>);
+        return (
+            <span>
+                <b>{ascnTooltip}</b> ({wgd} with total copy number of {tcn.toString(10)} and a minor copy number of {lcn.toString(10)})
+            </span>
+        );
     }
 
     // gets the FACETES call (e.g tetraploid, amp, cnloh)
@@ -105,7 +109,7 @@ export default class ASCNCopyNumberColumnFormatter {
         const displayValuesBySample:{[key:string]:JSX.Element} = ASCNCopyNumberColumnFormatter.getElementsForMutations(data, sampleIdToClinicalDataMap);
         const sampleIdsWithElements = sampleIds.filter(sampleId => displayValuesBySample[sampleId]);
         if (!sampleIdsWithElements) {
-            return (<span></span>);
+            return <span />;
         } else {
             // map to sampleIds instead of sampleIdsWithElements so that each icon will line up
             // positionally (e.g col 1 will always be sample 1, col 2 will always be sample 2
