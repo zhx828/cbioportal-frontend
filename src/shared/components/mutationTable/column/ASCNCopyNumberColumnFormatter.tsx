@@ -119,7 +119,7 @@ export default class ASCNCopyNumberColumnFormatter {
     public static getASCNCopyNumberTooltip(mutation:Mutation, sampleIdToClinicalDataMap:{[sampleId:string]:ClinicalData[]}|undefined) {
         const sampleId:string = mutation.sampleId;
         let wgd = getWGD(sampleIdToClinicalDataMap, sampleId);
-        if (!hasASCNProperty(mutation, "totalCopyNmber") || 
+        if (!hasASCNProperty(mutation, "totalCopyNumber") || 
             !hasASCNProperty(mutation, "minorCopyNumber") || 
             !hasASCNProperty(mutation, "ascnIntegerCopyNumber") || 
             wgd === null) {

@@ -10,7 +10,7 @@ export function toConditionalPrecision(number: number, precision: number, thresh
 /** will return false if number is null
  * used to test FACETS data values which are imported into database as MIN_FLOAT when "NA"
  */
-export function floatValueIsNA(number: number): boolean {
+export function floatValueIsNA(numValue: number): boolean {
     const minFloatValue: number = 1.0e-44;
-    return (number === undefined || (number > 0 && number < minFloatValue));
+    return (numValue === undefined || (numValue > 0 && numValue < minFloatValue));
 }

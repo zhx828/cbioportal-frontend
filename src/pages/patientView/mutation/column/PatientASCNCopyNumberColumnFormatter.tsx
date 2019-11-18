@@ -18,7 +18,7 @@ export default class PatientASCNCopyNumberColumnFormatter {
         const sampleId:string = mutation.sampleId;
         const componentBySample = sampleManager.getComponentForSample(sampleId, 1, "");
         let wgd = getWGD(sampleIdToClinicalDataMap, sampleId);
-        if (!hasASCNProperty(mutation, "totalCopyNmber") || 
+        if (!hasASCNProperty(mutation, "totalCopyNumber") || 
             !hasASCNProperty(mutation, "minorCopyNumber") || 
             !hasASCNProperty(mutation, "ascnIntegerCopyNumber") || 
             wgd === null) {
