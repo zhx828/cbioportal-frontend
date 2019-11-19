@@ -2,14 +2,20 @@ import * as React from 'react';
 import DefaultTooltip from "public-lib/components/defaultTooltip/DefaultTooltip";
 import SampleManager from "pages/patientView/SampleManager";
 
-function getClonalColor(clonalValue: string): string {
+enum ClonalColor {
+    LIMEGREEN='limegreen',
+    DIMGREY='dimgrey',
+    LIGHTGREY='lightgrey',
+}
+
+function getClonalColor(clonalValue: string): ClonalColor {
     switch (clonalValue) {
         case 'yes':
-            return 'limegreen';
+            return ClonalColor.LIMEGREEN;
         case 'no':
-            return 'dimgrey';
+            return ClonalColor.DIMGREY;
         default:
-            return 'lightgrey';
+            return ClonalColor.LIGHTGREY;
     }
 }
 
