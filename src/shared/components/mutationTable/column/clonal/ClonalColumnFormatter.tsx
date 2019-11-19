@@ -8,12 +8,16 @@ import ClonalElement from "shared/components/mutationTable/column/clonal/ClonalE
  * @author Avery Wang
  */
 
-type clonalValue='yes' | 'no' | 'NA';
+enum ClonalValue {
+    YES='yes',
+    NO='no',
+    NA='NA',
+}
 
-function getClonalValue(mutation: Mutation): clonalValue {
-    let textValue: clonalValue = "NA";
+function getClonalValue(mutation: Mutation): ClonalValue {
+    let textValue: ClonalValue = ClonalValue.NA;
     if (hasASCNProperty(mutation, "clonal")) {
-        textValue = mutation.alleleSpecificCopyNumber.clonal ? "yes" : "no";
+        textValue = mutation.alleleSpecificCopyNumber.clonal ? ClonalValue.YES : ClonalValue.NO;
     }
     return textValue;
 }
