@@ -78,9 +78,13 @@ export default class CustomCaseSelection extends React.Component<ICustomCaseSele
         if (selectMode === "selected") {
             selectedCases = this.props.selectedSamples;
         } else {
-            const _selectedCaseIds = this.props.selectedSamples.map(sample => sample.sampleId);
+            const _selectedCaseIds = _.reduce(this.props.selectedSamples, (acc, next) => {
+                acc[next.uniqueSampleKey] = true;
+                return acc;
+            }, {} as {[uniqueSampleKey:string]:boolean});
+
             selectedCases = this.props.allSamples.filter(sample => {
-                return !_selectedCaseIds.includes(sample.sampleId);
+                return !_selectedCaseIds[sample.uniqueSampleKey];
             });
         }
         let cases = selectedCases.map(sample => {
@@ -100,7 +104,7 @@ export default class CustomCaseSelection extends React.Component<ICustomCaseSele
         this.validContent = newContent;
         this.validateContent = true;
     }
-    
+
     @autobind
     @action
     onChartNameChange(event: any) {
