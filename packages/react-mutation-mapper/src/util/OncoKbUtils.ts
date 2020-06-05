@@ -48,7 +48,7 @@ const RESISTANCE_LEVEL_SCORE: { [level: string]: number } = {
 
 export function normalizeLevel(level: string | null): string | null {
     if (level) {
-        const matchArray = level.match(/LEVEL_(R?\d[AB]?)/);
+        const matchArray = level.match(/LEVEL_(.*)/);
 
         if (matchArray && matchArray.length >= 2) {
             return matchArray[1];

@@ -1,6 +1,6 @@
 import React from 'react';
 import { observer } from 'mobx-react';
-import { observable, computed } from 'mobx';
+import { computed, observable } from 'mobx';
 
 import tabsStyles from './tabs.module.scss';
 import OncoKbCardLevelsOfEvidenceDropdown from './OncoKbCardLevelsOfEvidenceDropdown';
@@ -10,6 +10,7 @@ import { IndicatorQueryResp } from 'oncokb-ts-api-client';
 import OncoKbCardTreatmentContent from './OncoKbCardTreatmentContent';
 import OncoKbHelper, { OncoKbCardDataType } from './OncoKbHelper';
 import { ICache } from '../../model/SimpleCache';
+import { OncoKbCardDxPxContent } from './OncoKbCardDxPxContent';
 
 const OncoKbMedicalDisclaimer = (
     <p className={mainStyles.disclaimer}>
@@ -56,6 +57,28 @@ export default class OncoKbCardBody extends React.Component<
                         }
                     />
                 );
+            case OncoKbCardDataType.DX:
+                return (
+                    <OncoKbCardDxPxContent
+                        variant={indicator.query.alteration}
+                        geneSummary={indicator.geneSummary}
+                        variantSummary={indicator.variantSummary}
+                        dxpxSummary={indicator.diagnosticSummary}
+                        implications={indicator.diagnosticImplications}
+                        pmidData={this.props.pmidData}
+                    />
+                );
+            case OncoKbCardDataType.PX:
+                return (
+                    <OncoKbCardDxPxContent
+                        variant={indicator.query.alteration}
+                        geneSummary={indicator.geneSummary}
+                        variantSummary={indicator.variantSummary}
+                        dxpxSummary={indicator.prognosticSummary}
+                        implications={indicator.prognosticImplications}
+                        pmidData={this.props.pmidData}
+                    />
+                );
             default:
                 return <></>;
         }
@@ -65,8 +88,18 @@ export default class OncoKbCardBody extends React.Component<
         switch (this.props.type) {
             case OncoKbCardDataType.TX:
                 return {
-                    levels: OncoKbHelper.LEVELS,
-                    levelDes: OncoKbHelper.LEVEL_DESC,
+                    levels: OncoKbHelper.TX_LEVELS,
+                    levelDes: OncoKbHelper.getLevelsDesc(OncoKbCardDataType.TX),
+                };
+            case OncoKbCardDataType.DX:
+                return {
+                    levels: OncoKbHelper.DX_LEVELS,
+                    levelDes: OncoKbHelper.getLevelsDesc(OncoKbCardDataType.DX),
+                };
+            case OncoKbCardDataType.PX:
+                return {
+                    levels: OncoKbHelper.PX_LEVELS,
+                    levelDes: OncoKbHelper.getLevelsDesc(OncoKbCardDataType.PX),
                 };
             default:
                 return {
@@ -81,8 +114,14 @@ export default class OncoKbCardBody extends React.Component<
             <>
                 {!this.props.geneNotExist && (
                     <div>
-                        {this.props.indicator &&
-                            this.getBody(this.props.indicator)}
+                        {this.props.indicator && (
+                            <div
+                                className={mainStyles['oncokb-card']}
+                                data-test="oncokb-card"
+                            >
+                                {this.getBody(this.props.indicator)}
+                            </div>
+                        )}
                         {!this.props.usingPublicOncoKbInstance && (
                             <>
                                 {/*Use tab pane style for the disclaimer to keep the consistency since the info is attached right under the tab pane*/}

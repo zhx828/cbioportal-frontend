@@ -1,6 +1,6 @@
 {
   "name": "react-mutation-mapper",
-  "version": "0.5.15",
+  "version": "0.5.16-alpha.1",
   "description": "Generic Mutation Mapper",
   "main": "dist/index.js",
   "module": "dist/index.es.js",
@@ -45,7 +45,7 @@
     "jquery": "^3.2.1",
     "lodash": "^4.17.11",
     "mobxpromise": "github:cbioportal/mobxpromise#v1.0.2",
-    "oncokb-styles": "~0.1.2",
+    "oncokb-styles": "0.2.0-alpha.1",
     "oncokb-ts-api-client": "^1.0.4",
     "react-collapse": "^4.0.3",
     "react-if": "^2.1.0",
