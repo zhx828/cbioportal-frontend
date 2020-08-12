@@ -18,11 +18,13 @@ import {
     RemoteData,
 } from 'cbioportal-utils';
 import OncokbPubMedCache from 'shared/cache/PubMedCache';
+import OncokbTrailsCache from 'shared/cache/ClinicalTrialsCache';
 import { CancerStudy, Mutation } from 'cbioportal-ts-api-client';
 import { CancerGene } from 'oncokb-ts-api-client';
 
 export interface IAnnotationColumnProps extends AnnotationProps {
     pubMedCache?: OncokbPubMedCache;
+    trialsCache?: OncokbTrailsCache;
     studyIdToStudy?: { [studyId: string]: CancerStudy };
     uniqueSampleKeyToTumorType?: { [sampleId: string]: string };
 }
