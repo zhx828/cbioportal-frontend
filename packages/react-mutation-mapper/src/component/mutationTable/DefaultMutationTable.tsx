@@ -52,6 +52,7 @@ export type DefaultMutationTableProps = {
     civicGenes?: RemoteData<ICivicGene | undefined>;
     civicVariants?: RemoteData<ICivicVariant | undefined>;
     pubMedCache?: MobxCache;
+    trialsCache?: MobxCache;
     columns: Column<Partial<Mutation>>[];
     appendColumns?: boolean;
 } & DataTableProps<Partial<Mutation>>;
@@ -148,6 +149,7 @@ export default class DefaultMutationTable extends React.Component<
                     <Annotation
                         mutation={column.original}
                         enableOncoKb={true}
+                        enableClinicalTrials={true}
                         enableHotspot={true}
                         enableCivic={this.props.enableCivic || false}
                         enableMyCancerGenome={true}
@@ -158,6 +160,7 @@ export default class DefaultMutationTable extends React.Component<
                             this.props.usingPublicOncoKbInstance
                         }
                         pubMedCache={this.props.pubMedCache}
+                        trialsCache={this.props.trialsCache}
                         civicGenes={this.props.civicGenes}
                         civicVariants={this.props.civicVariants}
                     />
