@@ -13,10 +13,11 @@ import styles from './styles.module.scss';
 import { MobxCache } from 'cbioportal-utils';
 import { IMatchedTrials, ITrial } from '../../model/ClinicalTrial';
 import ClinicalTrialsTable from './ClinicalTrialTable';
-import { errorIcon, loaderIcon } from 'react-mutation-mapper';
 import { hideArrow, isActiveTrial, matchTrials } from './ClinicalTrialsUtil';
 import { levelIconClassNames, normalizeLevel } from '../../util/OncoKbUtils';
 import { TreatmentTag } from './TreatmentTag';
+import { errorIcon, loaderIcon } from '../StatusHelpers';
+import oncoKbLogoImgSrc from '../../images/oncokb_logo.png';
 
 export interface IClinicalTrialsCardProps {
     status: 'pending' | 'error' | 'complete';
@@ -206,7 +207,7 @@ export default class ClinicalTrialsCard extends React.Component<
                     <div style={{ marginTop: 10, marginBottom: 10 }}>
                         <a href={'https://oncokb.org'} target="_blank">
                             <img
-                                src={require('../../../rootImages/oncokb.png')}
+                                src={oncoKbLogoImgSrc}
                                 className={styles['oncokb-logo']}
                                 alt="OncoKB"
                             />

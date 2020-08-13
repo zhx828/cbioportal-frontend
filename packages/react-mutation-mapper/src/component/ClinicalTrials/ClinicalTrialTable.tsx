@@ -3,7 +3,7 @@ import * as React from 'react';
 import ReactTable from 'react-table';
 import { ITrial } from '../../model/ClinicalTrial';
 import { getTrialStatusColor } from './ClinicalTrialsUtil';
-import { defaultSortMethod } from 'react-mutation-mapper';
+import { defaultSortMethod } from '../../util/ReactTableUtils';
 
 type TrialsTableProps = {
     trials: ITrial[];
