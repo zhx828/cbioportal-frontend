@@ -68,178 +68,161 @@ export default class OncoKbCardTreatmentContent extends React.Component<
     // TODO we should replace the tabs with an actual ReactBootstrap Tab,
     public render() {
         return (
-            <div className={mainStyles['oncokb-card']} data-test="oncokb-card">
-                <div className={tabsStyles['tabs-wrapper']}>
-                    <div className={tabsStyles.tabs}>
-                        <div
-                            key={ActiveTabEnum.ONCOGENICITY}
-                            data-test={`${ActiveTabEnum.ONCOGENICITY}-tab`}
+            <div className={tabsStyles['tabs-wrapper']}>
+                <div className={tabsStyles.tabs}>
+                    <div
+                        key={ActiveTabEnum.ONCOGENICITY}
+                        data-test={`${ActiveTabEnum.ONCOGENICITY}-tab`}
+                        className={classnames(tabsStyles.tab, 'enable-hover')}
+                    >
+                        <a
                             className={classnames(
-                                tabsStyles.tab,
-                                'enable-hover'
+                                ActiveTabEnum.ONCOGENICITY,
+                                tabsStyles['tab-title-a'],
+                                mainStyles['enable-hover-a'],
+                                this.activeTab === ActiveTabEnum.ONCOGENICITY
+                                    ? mainStyles['enable-hover-active']
+                                    : ''
                             )}
+                            onClick={this.handleOncogenicityTabSelect}
                         >
-                            <a
-                                className={classnames(
-                                    ActiveTabEnum.ONCOGENICITY,
-                                    tabsStyles['tab-title-a'],
-                                    mainStyles['enable-hover-a'],
-                                    this.activeTab ===
-                                        ActiveTabEnum.ONCOGENICITY
-                                        ? mainStyles['enable-hover-active']
-                                        : ''
-                                )}
-                                onClick={this.handleOncogenicityTabSelect}
-                            >
-                                <span className={tabsStyles['tab-title']}>
-                                    clinical implications
-                                </span>
-                                <span className={tabsStyles['tab-subtitle']}>
-                                    {this.props.oncogenicity || 'Unknown'}
-                                </span>
-                            </a>
-                        </div>
-                        <div
-                            data-test={`${ActiveTabEnum.MUTATION_EFFECT}-tab`}
-                            key="mutationEffect"
-                            className={classnames(
-                                tabsStyles.tab,
-                                'enable-hover'
-                            )}
-                        >
-                            <a
-                                className={classnames(
-                                    'mutation-effect',
-                                    tabsStyles['tab-title-a'],
-                                    mainStyles['enable-hover-a'],
-                                    this.activeTab ===
-                                        ActiveTabEnum.MUTATION_EFFECT
-                                        ? mainStyles['enable-hover-active']
-                                        : ''
-                                )}
-                                onClick={this.handleMutationEffectTabSelect}
-                            >
-                                <span className={tabsStyles['tab-title']}>
-                                    Biological Effect
-                                </span>
-                                <span className={tabsStyles['tab-subtitle']}>
-                                    {this.props.mutationEffect || 'Unknown'}
-                                </span>
-                            </a>
-                        </div>
-                        <div className={mainStyles.indicator} />
+                            <span className={tabsStyles['tab-title']}>
+                                clinical implications
+                            </span>
+                            <span className={tabsStyles['tab-subtitle']}>
+                                {this.props.oncogenicity || 'Unknown'}
+                            </span>
+                        </a>
                     </div>
-                    {this.activeTab === ActiveTabEnum.ONCOGENICITY && (
-                        <div>
-                            <div
-                                className={classnames(tabsStyles['tab-pane'])}
-                                data-test={`${ActiveTabEnum.ONCOGENICITY}-pane`}
-                            >
-                                <p>{this.props.geneSummary}</p>
-                                <p>{this.props.variantSummary}</p>
-                                {this.props.usingPublicOncoKbInstance ? (
-                                    <p className={mainStyles.disclaimer}>
-                                        Therapeutic levels are not available in
-                                        this instance of cBioPortal.{' '}
-                                        <DefaultTooltip
-                                            overlayStyle={{
-                                                maxWidth: 400,
-                                            }}
-                                            overlay={
-                                                publicInstanceDisclaimerOverLay
-                                            }
-                                        >
-                                            <i
-                                                className={'fa fa-info-circle'}
-                                            ></i>
-                                        </DefaultTooltip>
-                                    </p>
-                                ) : (
-                                    <>
-                                        <p>{this.props.tumorTypeSummary}</p>
-
-                                        {this.props.treatments!.length > 0 && (
-                                            <div
-                                                style={{
-                                                    marginTop: 10,
-                                                }}
-                                            >
-                                                <OncoKbTreatmentTable
-                                                    variant={
-                                                        this.props.variant || ''
-                                                    }
-                                                    pmidData={
-                                                        this.props.pmidData!
-                                                    }
-                                                    treatments={
-                                                        this.props.treatments!
-                                                    }
-                                                />
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                    {this.activeTab === ActiveTabEnum.MUTATION_EFFECT && (
+                    <div
+                        data-test={`${ActiveTabEnum.MUTATION_EFFECT}-tab`}
+                        key="mutationEffect"
+                        className={classnames(tabsStyles.tab, 'enable-hover')}
+                    >
+                        <a
+                            className={classnames(
+                                'mutation-effect',
+                                tabsStyles['tab-title-a'],
+                                mainStyles['enable-hover-a'],
+                                this.activeTab === ActiveTabEnum.MUTATION_EFFECT
+                                    ? mainStyles['enable-hover-active']
+                                    : ''
+                            )}
+                            onClick={this.handleMutationEffectTabSelect}
+                        >
+                            <span className={tabsStyles['tab-title']}>
+                                Biological Effect
+                            </span>
+                            <span className={tabsStyles['tab-subtitle']}>
+                                {this.props.mutationEffect || 'Unknown'}
+                            </span>
+                        </a>
+                    </div>
+                    <div className={mainStyles.indicator} />
+                </div>
+                {this.activeTab === ActiveTabEnum.ONCOGENICITY && (
+                    <div>
                         <div
                             className={classnames(tabsStyles['tab-pane'])}
-                            data-test={`${ActiveTabEnum.MUTATION_EFFECT}-pane`}
-                            style={{
-                                maxHeight: 200,
-                                overflowY: 'auto',
-                            }}
+                            data-test={`${ActiveTabEnum.ONCOGENICITY}-pane`}
                         >
-                            <If
-                                condition={
-                                    this.props.biologicalSummary !==
-                                        undefined &&
-                                    this.props.biologicalSummary.length > 0
-                                }
-                            >
-                                <Then>
-                                    <SummaryWithRefs
-                                        content={this.props.biologicalSummary}
-                                        type={'tooltip'}
-                                        pmidData={this.props.pmidData!}
-                                    />
-                                </Then>
-                                <Else>
-                                    <If
-                                        condition={
-                                            this.props
-                                                .mutationEffectCitations &&
-                                            (this.props.mutationEffectCitations
-                                                .abstracts.length > 0 ||
-                                                this.props
-                                                    .mutationEffectCitations
-                                                    .pmids.length > 0)
+                            <p>{this.props.geneSummary}</p>
+                            <p>{this.props.variantSummary}</p>
+                            {this.props.usingPublicOncoKbInstance ? (
+                                <p className={mainStyles.disclaimer}>
+                                    Therapeutic levels are not available in this
+                                    instance of cBioPortal.{' '}
+                                    <DefaultTooltip
+                                        overlayStyle={{
+                                            maxWidth: 400,
+                                        }}
+                                        overlay={
+                                            publicInstanceDisclaimerOverLay
                                         }
                                     >
-                                        <Then>
-                                            <ReferenceList
-                                                pmidData={this.props.pmidData}
-                                                pmids={this.props.mutationEffectCitations!.pmids.map(
-                                                    pmid => Number(pmid)
-                                                )}
-                                                abstracts={
-                                                    this.props
-                                                        .mutationEffectCitations!
-                                                        .abstracts
+                                        <i className={'fa fa-info-circle'}></i>
+                                    </DefaultTooltip>
+                                </p>
+                            ) : (
+                                <>
+                                    <p>{this.props.tumorTypeSummary}</p>
+
+                                    {this.props.treatments!.length > 0 && (
+                                        <div
+                                            style={{
+                                                marginTop: 10,
+                                            }}
+                                        >
+                                            <OncoKbTreatmentTable
+                                                variant={
+                                                    this.props.variant || ''
+                                                }
+                                                pmidData={this.props.pmidData!}
+                                                treatments={
+                                                    this.props.treatments!
                                                 }
                                             />
-                                        </Then>
-                                        <Else>
-                                            Mutation effect information is not
-                                            available.
-                                        </Else>
-                                    </If>
-                                </Else>
-                            </If>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
+                {this.activeTab === ActiveTabEnum.MUTATION_EFFECT && (
+                    <div
+                        className={classnames(tabsStyles['tab-pane'])}
+                        data-test={`${ActiveTabEnum.MUTATION_EFFECT}-pane`}
+                        style={{
+                            maxHeight: 200,
+                            overflowY: 'auto',
+                        }}
+                    >
+                        <If
+                            condition={
+                                this.props.biologicalSummary !== undefined &&
+                                this.props.biologicalSummary.length > 0
+                            }
+                        >
+                            <Then>
+                                <SummaryWithRefs
+                                    content={this.props.biologicalSummary}
+                                    type={'tooltip'}
+                                    pmidData={this.props.pmidData!}
+                                />
+                            </Then>
+                            <Else>
+                                <If
+                                    condition={
+                                        this.props.mutationEffectCitations &&
+                                        (this.props.mutationEffectCitations
+                                            .abstracts.length > 0 ||
+                                            this.props.mutationEffectCitations
+                                                .pmids.length > 0)
+                                    }
+                                >
+                                    <Then>
+                                        <ReferenceList
+                                            pmidData={this.props.pmidData}
+                                            pmids={this.props.mutationEffectCitations!.pmids.map(
+                                                pmid => Number(pmid)
+                                            )}
+                                            abstracts={
+                                                this.props
+                                                    .mutationEffectCitations!
+                                                    .abstracts
+                                            }
+                                        />
+                                    </Then>
+                                    <Else>
+                                        Mutation effect information is not
+                                        available.
+                                    </Else>
+                                </If>
+                            </Else>
+                        </If>
+                    </div>
+                )}
             </div>
         );
     }

@@ -204,7 +204,7 @@ export function getProxyUrlIfNecessary(url: any) {
 }
 
 export function getOncoKbApiUrl() {
-    return buildCBioPortalAPIUrl(`proxy/oncokb`);
+    return `http://localhost:8080/oncokb-public/api/v1`;
 }
 
 export function getInstituteLogoUrl() {

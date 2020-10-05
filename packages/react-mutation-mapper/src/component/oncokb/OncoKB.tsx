@@ -11,6 +11,8 @@ import {
     calcOncogenicScore,
     calcResistanceLevelScore,
     calcSensitivityLevelScore,
+    levelIconClassNames,
+    normalizeLevel,
 } from '../../util/OncoKbUtils';
 import { errorIcon, loaderIcon } from '../StatusHelpers';
 import OncoKbTooltip from './OncoKbTooltip';
@@ -19,6 +21,7 @@ import OncoKbFeedback from './OncoKbFeedback';
 import annotationStyles from '../column/annotation.module.scss';
 import './oncokb.scss';
 import 'oncokb-styles/dist/oncokb.css';
+import { OncoKbCardDataType } from './OncoKbHelper';
 
 export interface IOncoKbProps {
     status: 'pending' | 'error' | 'complete';
@@ -82,16 +85,24 @@ export default class OncoKB extends React.Component<IOncoKbProps, {}> {
             oncoKbContent = loaderIcon('pull-left');
         } else {
             oncoKbContent = (
-                <span className={`${annotationStyles['annotation-item']}`}>
-                    <i
-                        className={annotationIconClassNames(
-                            this.props.usingPublicOncoKbInstance,
-                            this.props.indicator
+                <>
+                    {this.getAnnotationIcon(OncoKbCardDataType.TX)}
+                    {!this.props.usingPublicOncoKbInstance &&
+                        this.props.indicator && (
+                            <>
+                                {this.props.indicator
+                                    .highestDiagnosticImplicationLevel &&
+                                    this.getAnnotationIcon(
+                                        OncoKbCardDataType.DX
+                                    )}
+                                {this.props.indicator
+                                    .highestPrognosticImplicationLevel &&
+                                    this.getAnnotationIcon(
+                                        OncoKbCardDataType.PX
+                                    )}
+                            </>
                         )}
-                        data-test="oncogenic-icon-image"
-                        data-test2={this.props.hugoGeneSymbol}
-                    />
-                </span>
+                </>
             );
             if (!this.props.disableFeedback && this.showFeedback) {
                 oncoKbContent = (
@@ -110,29 +121,53 @@ export default class OncoKB extends React.Component<IOncoKbProps, {}> {
                         />
                     </span>
                 );
-            } else {
-                oncoKbContent = (
-                    <DefaultTooltip
-                        overlayClassName="oncokb-tooltip"
-                        overlay={this.tooltipContent}
-                        placement="right"
-                        trigger={['hover', 'focus']}
-                        onPopupAlign={hideArrow}
-                        destroyTooltipOnHide={true}
-                    >
-                        {oncoKbContent}
-                    </DefaultTooltip>
-                );
             }
         }
 
         return oncoKbContent;
     }
 
+    private getAnnotationIcon(type: OncoKbCardDataType) {
+        return (
+            <span className={`${annotationStyles['annotation-item']}`}>
+                <DefaultTooltip
+                    overlayClassName="oncokb-tooltip"
+                    overlay={() => this.tooltipContent(type)}
+                    placement="right"
+                    trigger={['hover', 'focus']}
+                    onPopupAlign={hideArrow}
+                    destroyTooltipOnHide={true}
+                >
+                    <i
+                        className={
+                            type === OncoKbCardDataType.TX
+                                ? annotationIconClassNames(
+                                      this.props.usingPublicOncoKbInstance,
+                                      this.props.indicator
+                                  )
+                                : levelIconClassNames(
+                                      normalizeLevel(
+                                          type === OncoKbCardDataType.DX
+                                              ? this.props.indicator!
+                                                    .highestDiagnosticImplicationLevel
+                                              : this.props.indicator!
+                                                    .highestPrognosticImplicationLevel
+                                      ) || ''
+                                  )
+                        }
+                        data-test="oncogenic-icon-image"
+                        data-test2={this.props.hugoGeneSymbol}
+                    />
+                </DefaultTooltip>
+            </span>
+        );
+    }
+
     @autobind
-    private tooltipContent(): JSX.Element {
+    private tooltipContent(type: OncoKbCardDataType): JSX.Element {
         return (
             <OncoKbTooltip
+                type={type}
                 usingPublicOncoKbInstance={this.props.usingPublicOncoKbInstance}
                 hugoSymbol={this.props.hugoGeneSymbol}
                 geneNotExist={this.props.geneNotExist}
