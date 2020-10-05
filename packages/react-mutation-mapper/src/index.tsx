@@ -14,6 +14,15 @@ export {
     sortValue as annotationSortValue,
 } from './component/column/Annotation';
 export {
+    OncoKBColumnProps,
+    default as OncoKBColumn,
+    DEFAULT_ONCOKBCOLUMN_DATA,
+    GenericOncoKBColumn,
+    getOncoKBColumnData,
+    IOncoKBColumn,
+    sortValue as oncoKBColumnSortValue,
+} from './component/column/OncoKBColumn';
+export {
     default as ClinVar,
     download as clinVarDownload,
     sortValue as clinVarSortValue,
@@ -72,21 +81,15 @@ export {
     default as GnomadFrequency,
     calculateAlleleFrequency as calculateGnomadAlleleFrequency,
 } from './component/gnomad/GnomadFrequency';
-export {
-    default as GnomadFrequencyTable,
-} from './component/gnomad/GnomadFrequencyTable';
+export { default as GnomadFrequencyTable } from './component/gnomad/GnomadFrequencyTable';
 export {
     default as OncoKB,
     sortValue as oncoKbAnnotationSortValue,
     download as oncoKbAnnotationDownload,
     IOncoKbProps,
 } from './component/oncokb/OncoKB';
-export {
-    default as OncoKBSuggestAnnotationLinkout,
-} from './component/oncokb/OncoKBSuggestAnnotationLinkout';
-export {
-    default as OncoKbTreatmentTable,
-} from './component/oncokb/OncoKbTreatmentTable';
+export { default as OncoKBSuggestAnnotationLinkout } from './component/oncokb/OncoKBSuggestAnnotationLinkout';
+export { default as OncoKbTreatmentTable } from './component/oncokb/OncoKbTreatmentTable';
 export { default as OncoKbFeedback } from './component/oncokb/OncoKbFeedback';
 export { default as OncoKbTooltip } from './component/oncokb/OncoKbTooltip';
 export { default as ReferenceList } from './component/oncokb/ReferenceList';
@@ -102,20 +105,14 @@ export {
     ColumnSortDirection,
     DataTableColumn,
 } from './component/dataTable/DataTable';
-export {
-    default as DefaultMutationTable,
-} from './component/mutationTable/DefaultMutationTable';
+export { default as DefaultMutationTable } from './component/mutationTable/DefaultMutationTable';
 export * from './component/mutationTable/MutationColumnHelper';
 export { default as Domain } from './component/lollipopPlot/Domain';
 export { default as HotspotInfo } from './component/hotspot/HotspotInfo';
 export { default as Lollipop } from './component/lollipopPlot/Lollipop';
-export {
-    default as LollipopMutationPlot,
-} from './component/lollipopMutationPlot/LollipopMutationPlot';
+export { default as LollipopMutationPlot } from './component/lollipopMutationPlot/LollipopMutationPlot';
 export { default as LollipopPlot } from './component/lollipopPlot/LollipopPlot';
-export {
-    default as LollipopPlotNoTooltip,
-} from './component/lollipopPlot/LollipopPlotNoTooltip';
+export { default as LollipopPlotNoTooltip } from './component/lollipopPlot/LollipopPlotNoTooltip';
 export { default as Sequence } from './component/lollipopPlot/LollipopPlot';
 export {
     default as MutationMapper,
@@ -160,15 +157,7 @@ export {
 } from './util/OncoKbUtils';
 export * from './util/TrackUtils';
 
-export {
-    default as DefaultMutationMapperDataFetcher,
-} from './store/DefaultMutationMapperDataFetcher';
-export {
-    default as DefaultMutationMapperDataStore,
-} from './store/DefaultMutationMapperDataStore';
-export {
-    default as DefaultMutationMapperFilterApplier,
-} from './store/DefaultMutationMapperFilterApplier';
-export {
-    default as DefaultMutationMapperStore,
-} from './store/DefaultMutationMapperStore';
+export { default as DefaultMutationMapperDataFetcher } from './store/DefaultMutationMapperDataFetcher';
+export { default as DefaultMutationMapperDataStore } from './store/DefaultMutationMapperDataStore';
+export { default as DefaultMutationMapperFilterApplier } from './store/DefaultMutationMapperFilterApplier';
+export { default as DefaultMutationMapperStore } from './store/DefaultMutationMapperStore';

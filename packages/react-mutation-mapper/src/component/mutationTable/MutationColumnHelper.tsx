@@ -17,6 +17,7 @@ import { dbsnpSortMethod } from '../column/Dbsnp';
 export enum MutationColumn {
     PROTEIN_CHANGE = 'proteinChange',
     ANNOTATION = 'annotation',
+    ONCOKB = 'oncokb',
     MUTATION_STATUS = 'mutationStatus',
     MUTATION_TYPE = 'mutationType',
     CHROMOSOME = 'chromosome',
@@ -32,6 +33,7 @@ export enum MutationColumn {
 export enum MutationColumnName {
     PROTEIN_CHANGE = 'Protein Change',
     ANNOTATION = 'Annotation',
+    ONCOKB = 'OncoKB',
     MUTATION_STATUS = 'Mutation Status',
     MUTATION_TYPE = 'Mutation Type',
     CHROMOSOME = 'Chromosome',
@@ -59,6 +61,15 @@ export const MUTATION_COLUMN_HEADERS = {
         />
     ),
     [MutationColumn.ANNOTATION]: (
+        <ColumnHeader
+            headerContent={
+                <span className="pull-left">
+                    {MutationColumnName.ANNOTATION}
+                </span>
+            }
+        />
+    ),
+    [MutationColumn.ONCOKB]: (
         <ColumnHeader
             headerContent={
                 <span className="pull-left">
@@ -220,6 +231,12 @@ export const MUTATION_COLUMNS_DEFINITION = {
         id: MutationColumn.ANNOTATION,
         name: MutationColumnName.ANNOTATION,
         Header: MUTATION_COLUMN_HEADERS[MutationColumn.ANNOTATION],
+        sortMethod: annotationSortMethod,
+    },
+    [MutationColumn.ONCOKB]: {
+        id: MutationColumn.ONCOKB,
+        name: MutationColumnName.ONCOKB,
+        Header: MUTATION_COLUMN_HEADERS[MutationColumn.ONCOKB],
         sortMethod: annotationSortMethod,
     },
     [MutationColumn.MUTATION_TYPE]: {

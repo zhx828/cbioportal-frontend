@@ -258,7 +258,7 @@ export function GenericAnnotation(props: GenericAnnotationProps): JSX.Element {
 
     return (
         <span style={{ display: 'flex', minWidth: 100 }}>
-            {enableOncoKb && (
+            {/* {enableOncoKb && (
                 <OncoKB
                     usingPublicOncoKbInstance={
                         annotation.usingPublicOncoKbInstance
@@ -283,7 +283,7 @@ export function GenericAnnotation(props: GenericAnnotationProps): JSX.Element {
                         indicator={annotation.oncoKbIndicator}
                         trialsCache={trialsCache}
                     />
-                )}
+                )} */}
             {enableCivic && (
                 <Civic
                     civicEntry={annotation.civicEntry}

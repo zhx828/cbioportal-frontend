@@ -33,6 +33,7 @@ import ValidationStatusColumnFormatter from './column/ValidationStatusColumnForm
 import StudyColumnFormatter from './column/StudyColumnFormatter';
 import { ICosmicData } from 'shared/model/Cosmic';
 import AnnotationColumnFormatter from './column/AnnotationColumnFormatter';
+import OncoKBColumnFormatter from './column/OncoKBColumnFormatter';
 import ExonColumnFormatter from './column/ExonColumnFormatter';
 import { IMutSigData } from 'shared/model/MutSig';
 import DiscreteCNACache from 'shared/cache/DiscreteCNACache';
@@ -147,6 +148,7 @@ export enum MutationTableColumnType {
     NORMAL_ALLELE_FREQ,
     FUNCTIONAL_IMPACT,
     ANNOTATION,
+    ONCOKB,
     HGVSG,
     COSMIC,
     COPY_NUM,
@@ -231,7 +233,7 @@ export default class MutationTable<
         initialItemsPerPage: 25,
         showCountHeader: true,
         paginationProps: { itemsPerPageOptions: [25, 50, 100] },
-        initialSortColumn: 'Annotation',
+        initialSortColumn: 'OncoKB',
         initialSortDirection: 'desc',
         itemsLabel: 'Mutation',
         itemsLabelPlural: 'Mutations',
@@ -845,6 +847,106 @@ export default class MutationTable<
                     this.props.usingPublicOncoKbInstance,
                     this.props.civicGenes,
                     this.props.civicVariants,
+                    this.resolveTumorType
+                );
+            },
+        };
+
+        this._columns[MutationTableColumnType.ONCOKB] = {
+            name: 'OncoKB',
+            render: (d: Mutation[]) =>
+                OncoKBColumnFormatter.renderFunction(d, {
+                    // hotspotData: this.props.hotspotData,
+                    // myCancerGenomeData: this.props.myCancerGenomeData,
+                    oncoKbData: this.props.oncoKbData,
+                    oncoKbCancerGenes: this.props.oncoKbCancerGenes,
+                    usingPublicOncoKbInstance: this.props
+                        .usingPublicOncoKbInstance,
+                    pubMedCache: this.props.pubMedCache,
+                    trialsCache: this.props.trialsCache,
+                    // civicGenes: this.props.civicGenes,
+                    // civicVariants: this.props.civicVariants,
+                    // enableCivic: this.props.enableCivic as boolean,
+                    enableOncoKb: this.props.enableOncoKb as boolean,
+                    enableClinicalTrials: this.props
+                        .enableClinicalTrials as boolean,
+                    // enableMyCancerGenome: this.props
+                    // .enableMyCancerGenome as boolean,
+                    // enableHotspot: this.props.enableHotspot as boolean,
+                    userEmailAddress: this.props.userEmailAddress,
+                    resolveTumorType: this.resolveTumorType,
+                }),
+            filter: (
+                d: Mutation[],
+                filterString: string,
+                filterStringUpper: string
+            ) => {
+                let ret = false;
+                switch (filterStringUpper) {
+                    // case 'HOTSPOT':
+                    //     const annotation: IOncoKBColumn = getOncoKBColumnData(
+                    //         d ? d[0] : undefined,
+                    //         this.props.oncoKbCancerGenes,
+                    //         this.props.hotspotData,
+                    //         this.props.myCancerGenomeData,
+                    //         this.props.oncoKbData,
+                    //         this.props.usingPublicOncoKbInstance,
+                    //         // this.props.civicGenes,
+                    //         // this.props.civicVariants,
+                    //         this.resolveTumorType
+                    //     );
+
+                    //     // ret = annotation.isHotspot;
+                    //     break;
+                    case 'ONCOGENIC':
+                        if (
+                            this.props.oncoKbData &&
+                            this.props.oncoKbData.result &&
+                            !(this.props.oncoKbData.result instanceof Error) &&
+                            this.props.oncoKbData.result.indicatorMap
+                        ) {
+                            const queryId = generateQueryVariantId(
+                                d[0].entrezGeneId,
+                                null,
+                                d[0].proteinChange,
+                                d[0].mutationType
+                            );
+                            const indicator = this.props.oncoKbData.result
+                                .indicatorMap[queryId];
+                            if (indicator) {
+                                ret = indicator.oncogenic
+                                    .toLowerCase()
+                                    .trim()
+                                    .includes('oncogenic');
+                            }
+                        }
+                        break;
+                }
+                return ret;
+            },
+            download: (d: Mutation[]) => {
+                return OncoKBColumnFormatter.download(
+                    d,
+                    this.props.oncoKbCancerGenes,
+                    // this.props.hotspotData,
+                    // this.props.myCancerGenomeData,
+                    this.props.oncoKbData,
+                    this.props.usingPublicOncoKbInstance,
+                    // this.props.civicGenes,
+                    // this.props.civicVariants,
+                    this.resolveTumorType
+                );
+            },
+            sortBy: (d: Mutation[]) => {
+                return OncoKBColumnFormatter.sortValue(
+                    d,
+                    this.props.oncoKbCancerGenes,
+                    // this.props.hotspotData,
+                    // this.props.myCancerGenomeData,
+                    this.props.oncoKbData,
+                    this.props.usingPublicOncoKbInstance,
+                    // this.props.civicGenes,
+                    // this.props.civicVariants,
                     this.resolveTumorType
                 );
             },
