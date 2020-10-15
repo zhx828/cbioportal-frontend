@@ -16082,10 +16082,10 @@ once@~1.3.0:
   dependencies:
     wrappy "1"
 
-oncokb-styles@~0.2.0-alpha.1:
-  version "0.2.0-alpha.1"
-  resolved "https://registry.yarnpkg.com/oncokb-styles/-/oncokb-styles-0.2.0-alpha.1.tgz#5261225a8b4dca8f64afa8d68f64d438a2375ec4"
-  integrity sha512-tPVO1HUCQMQxT6NfBWu2fuSJyXAErgLSyFnpawWK1U2OA23Z2kBXecfBYtzNLzsfyywAi+7SQpCjtYTpcHKL8Q==
+oncokb-styles@~0.2.0-alpha.3:
+  version "0.2.0-alpha.3"
+  resolved "https://registry.yarnpkg.com/oncokb-styles/-/oncokb-styles-0.2.0-alpha.3.tgz#bf1377be12ed02f849c5a028e8b7057aa6ee8f89"
+  integrity sha512-kD9cEvg54sKqcoZj1UbCX9gzIUB01IsAwHlwsyPNnCI+VaNklMvjjvCCuvYlfT9aJVBsmBZVfVtmMWRT0pr+Wg==
 
 oncoprintjs@4.2.1:
   version "4.2.1"
