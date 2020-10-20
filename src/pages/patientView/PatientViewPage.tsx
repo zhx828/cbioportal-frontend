@@ -78,6 +78,12 @@ import { MakeMobxView } from '../../shared/components/MobxView';
 import ResourceTab from '../../shared/components/resources/ResourceTab';
 import TimelineWrapper from './timeline2/TimelineWrapper';
 import ClinicalEventsTables from './timeline2/ClinicalEventsTables';
+import { OncoKB } from 'react-mutation-mapper';
+import {
+    getSampleNumberClinicalDataValue,
+    OtherBiomarkersQueryType,
+} from 'shared/lib/StoreUtils';
+import { CLINICAL_ATTRIBUTE_ID_ENUM } from 'shared/constants';
 
 export interface IPatientViewPageProps {
     params: any; // react route
@@ -564,6 +570,16 @@ export default class PatientViewPage extends React.Component<
                         sampleManager.clinicalDataLegacyCleanAndDerived[
                             sample.id
                         ].DERIVED_NORMALIZED_CASE_TYPE === 'Xenograft';
+                    const sampleMsiScore = getSampleNumberClinicalDataValue(
+                        this.patientViewPageStore.clinicalDataForSamples.result,
+                        sample.id,
+                        CLINICAL_ATTRIBUTE_ID_ENUM.MSI_SCORE
+                    );
+                    const sampleTmbScore = getSampleNumberClinicalDataValue(
+                        this.patientViewPageStore.clinicalDataForSamples.result,
+                        sample.id,
+                        CLINICAL_ATTRIBUTE_ID_ENUM.TMB_SCORE
+                    );
 
                     return (
                         <div className="patientSample">
@@ -657,6 +673,71 @@ export default class PatientViewPage extends React.Component<
                                         }
                                         uniqueSampleKey={sample.id}
                                     />
+                                )}
+
+                            {this.patientViewPageStore
+                                .getOtherBiomarkersOncoKbData.result[
+                                sample.id
+                            ] &&
+                                this.patientViewPageStore
+                                    .getOtherBiomarkersOncoKbData.result[
+                                    sample.id
+                                ][OtherBiomarkersQueryType.MSIH] &&
+                                sampleMsiScore !== undefined && (
+                                    <span className="clinical-spans">
+                                        , MSI-H (Score: {sampleMsiScore}{' '}
+                                        <OncoKB
+                                            usingPublicOncoKbInstance={
+                                                this.patientViewPageStore
+                                                    .usingPublicOncoKbInstance
+                                            }
+                                            isCancerGene={true}
+                                            geneNotExist={false}
+                                            hugoGeneSymbol={'Other Biomarkers'}
+                                            status={'complete'}
+                                            indicator={
+                                                this.patientViewPageStore
+                                                    .getOtherBiomarkersOncoKbData
+                                                    .result[sample.id][
+                                                    OtherBiomarkersQueryType
+                                                        .MSIH
+                                                ]
+                                            }
+                                        />
+                                        )
+                                    </span>
+                                )}
+                            {this.patientViewPageStore
+                                .getOtherBiomarkersOncoKbData.result[
+                                sample.id
+                            ] &&
+                                this.patientViewPageStore
+                                    .getOtherBiomarkersOncoKbData.result[
+                                    sample.id
+                                ][OtherBiomarkersQueryType.TMBH] &&
+                                sampleTmbScore !== undefined && (
+                                    <span className="clinical-spans">
+                                        , TMB-H (Score: {sampleTmbScore}{' '}
+                                        <OncoKB
+                                            usingPublicOncoKbInstance={
+                                                this.patientViewPageStore
+                                                    .usingPublicOncoKbInstance
+                                            }
+                                            isCancerGene={true}
+                                            geneNotExist={false}
+                                            hugoGeneSymbol={'Other Biomarkers'}
+                                            status={'complete'}
+                                            indicator={
+                                                this.patientViewPageStore
+                                                    .getOtherBiomarkersOncoKbData
+                                                    .result[sample.id][
+                                                    OtherBiomarkersQueryType
+                                                        .TMBH
+                                                ]
+                                            }
+                                        />
+                                        )
+                                    </span>
                                 )}
                         </div>
                     );

@@ -15,11 +15,11 @@ import {
     ReferenceGenomeGene,
     ResourceData,
     Sample,
-    SampleMolecularIdentifier,
 } from 'cbioportal-ts-api-client';
 import client from '../../../shared/api/cbioportalClientInstance';
 import internalClient from '../../../shared/api/cbioportalInternalClientInstance';
-import { computed, observable, action, runInAction } from 'mobx';
+import oncokbClient from '../../../shared/api/oncokbClientInstance';
+import { action, computed, observable, runInAction } from 'mobx';
 import {
     getBrowserWindow,
     remoteData,
@@ -41,6 +41,7 @@ import GenomeNexusMutationAssessorCache from 'shared/cache/GenomeNexusMutationAs
 import {
     GenomeNexusAPI,
     GenomeNexusAPIInternal,
+    VariantAnnotation,
 } from 'genome-nexus-ts-api-client';
 import {
     ONCOKB_DEFAULT_INFO,
@@ -58,6 +59,7 @@ import {
     fetchClinicalData,
     fetchClinicalDataForPatient,
     fetchCnaOncoKbData,
+    fetchCnaOncoKbDataForOncoprint,
     fetchCopyNumberData,
     fetchCopyNumberSegments,
     fetchCosmicData,
@@ -71,37 +73,42 @@ import {
     fetchMutSigData,
     fetchOncoKbCancerGenes,
     fetchOncoKbData,
+    fetchOncoKbDataForOncoprint,
     fetchOncoKbInfo,
     fetchReferenceGenomeGenes,
     fetchSamplesForPatient,
     fetchStudiesForSamplesWithoutCancerTypeClinicalData,
-    mapSampleIdToClinicalData,
     fetchVariantAnnotationsIndexedByGenomicLocation,
+    filterAndAnnotateMolecularData,
+    findDiscreteMolecularProfile,
     findMolecularProfileIdDiscrete,
     findMrnaRankMolecularProfileId,
     findMutationMolecularProfile,
     findSamplesWithoutCancerTypeClinicalData,
     findUncalledMutationMolecularProfileId,
     generateUniqueSampleKeyToTumorTypeMap,
+    getGenomeNexusUrl,
+    getOtherBiomarkersQueryId,
+    getSampleClinicalDataMapByThreshold,
+    getSampleTumorTypeMap,
     groupBySampleId,
+    makeGetOncoKbCnaAnnotationForOncoprint,
+    makeGetOncoKbMutationAnnotationForOncoprint,
+    makeIsHotspotForOncoprint,
     makeStudyToCancerTypeMap,
+    mapSampleIdToClinicalData,
     mergeDiscreteCNAData,
     mergeMutations,
     mergeMutationsIncludingUncalled,
     noGenePanelUsed,
     ONCOKB_DEFAULT,
-    getGenomeNexusUrl,
-    makeGetOncoKbMutationAnnotationForOncoprint,
-    makeGetOncoKbCnaAnnotationForOncoprint,
-    fetchOncoKbDataForOncoprint,
-    fetchCnaOncoKbDataForOncoprint,
-    makeIsHotspotForOncoprint,
-    findDiscreteMolecularProfile,
-    filterAndAnnotateMolecularData,
+    OtherBiomarkersQueryType,
+    parseOtherBiomarkerQueryId,
+    tumorTypeResolver,
 } from 'shared/lib/StoreUtils';
 import {
-    getCoverageInformation,
     CoverageInformation,
+    getCoverageInformation,
 } from 'shared/lib/GenePanelUtils';
 import {
     fetchCivicGenes,
@@ -109,8 +116,11 @@ import {
     fetchCnaCivicGenes,
 } from 'shared/lib/CivicUtils';
 import { fetchHotspotsData } from 'shared/lib/CancerHotspotsUtils';
-import { VariantAnnotation } from 'genome-nexus-ts-api-client';
-import { CancerGene, IndicatorQueryResp } from 'oncokb-ts-api-client';
+import {
+    AnnotateMutationByProteinChangeQuery,
+    CancerGene,
+    IndicatorQueryResp,
+} from 'oncokb-ts-api-client';
 import { MutationTableDownloadDataFetcher } from 'shared/lib/MutationTableDownloadDataFetcher';
 import { getNavCaseIdsCache } from 'shared/lib/handleLongUrls';
 import {
@@ -137,14 +147,14 @@ import { checkNonProfiledGenesExist } from '../PatientViewPageUtils';
 import autobind from 'autobind-decorator';
 import { createVariantAnnotationsByMutationFetcher } from 'shared/components/mutationMapper/MutationMapperUtils';
 import {
+    getMyCancerGenomeData,
+    getMyVariantInfoAnnotationsFromIndexedVariantAnnotations,
     ICivicGene,
     ICivicVariant,
     IHotspotIndex,
     IMyCancerGenomeData,
-    indexHotspotsData,
     IMyVariantInfoIndex,
-    getMyCancerGenomeData,
-    getMyVariantInfoAnnotationsFromIndexedVariantAnnotations,
+    indexHotspotsData,
     IOncoKbData,
 } from 'cbioportal-utils';
 import { makeGeneticTrackData } from 'shared/components/oncoprint/DataUtils';
@@ -158,6 +168,11 @@ import {
     getMutationSubType,
     getSimplifiedMutationType,
 } from 'shared/lib/oql/AccessorsForOqlFilter';
+import {
+    CLINICAL_ATTRIBUTE_ID_ENUM,
+    MSI_H_THRESHOLD,
+    TMB_H_THRESHOLD,
+} from 'shared/constants';
 
 type PageMode = 'patient' | 'sample';
 
@@ -1992,4 +2007,92 @@ export class PatientViewPageStore {
     @computed get genomeNexusInternalClient() {
         return new GenomeNexusAPIInternal(this.referenceGenomeBuild);
     }
+
+    @computed get sampleMsiHInfo() {
+        return getSampleClinicalDataMapByThreshold(
+            this.clinicalDataForSamples.result,
+            CLINICAL_ATTRIBUTE_ID_ENUM.MSI_SCORE,
+            MSI_H_THRESHOLD
+        );
+    }
+
+    @computed get sampleTmbHInfo() {
+        return getSampleClinicalDataMapByThreshold(
+            this.clinicalDataForSamples.result,
+            CLINICAL_ATTRIBUTE_ID_ENUM.TMB_SCORE,
+            TMB_H_THRESHOLD
+        );
+    }
+
+    @computed get otherBiomarkerQueries() {
+        const queries: AnnotateMutationByProteinChangeQuery[] = [];
+        if (_.keys(this.sampleMsiHInfo).length > 0) {
+            const msihQueries = _.values(this.sampleMsiHInfo).map(clinical => {
+                return {
+                    id: getOtherBiomarkersQueryId({
+                        sampleId: clinical.sampleId,
+                        type: OtherBiomarkersQueryType.MSIH,
+                    }),
+                    alteration: 'MSI-H',
+                    gene: {
+                        hugoSymbol: 'Other Biomarkers',
+                    },
+                    tumorType: tumorTypeResolver(
+                        getSampleTumorTypeMap(
+                            this.clinicalDataForSamples.result,
+                            this.studyMetaData.result?.cancerType.name
+                        )
+                    ),
+                } as AnnotateMutationByProteinChangeQuery;
+            });
+            queries.push(...msihQueries);
+        }
+        if (_.keys(this.sampleTmbHInfo).length > 0) {
+            const tmbhQueries = _.values(this.sampleTmbHInfo).map(clinical => {
+                return {
+                    id: getOtherBiomarkersQueryId({
+                        sampleId: clinical.sampleId,
+                        type: OtherBiomarkersQueryType.TMBH,
+                    }),
+                    alteration: 'TMB-H',
+                    gene: {
+                        hugoSymbol: 'Other Biomarkers',
+                    },
+                    tumorType: tumorTypeResolver(
+                        getSampleTumorTypeMap(
+                            this.clinicalDataForSamples.result,
+                            this.studyMetaData.result?.cancerType.name
+                        )
+                    ),
+                } as AnnotateMutationByProteinChangeQuery;
+            });
+            queries.push(...tmbhQueries);
+        }
+        return queries;
+    }
+
+    readonly getOtherBiomarkersOncoKbData = remoteData<{
+        [sampleId: string]: { [queryType: string]: IndicatorQueryResp };
+    }>({
+        invoke: async () => {
+            const allResult = await oncokbClient.annotateMutationsByProteinChangePostUsingPOST_1(
+                {
+                    body: this.otherBiomarkerQueries,
+                }
+            );
+
+            const updatedResult = allResult.map(resp => {
+                return {
+                    ...resp,
+                    ...parseOtherBiomarkerQueryId(resp.query.id),
+                };
+            });
+            const map = _.chain(updatedResult)
+                .groupBy('sampleId')
+                .mapValues(group => _.keyBy(group, 'type'))
+                .value();
+            return map;
+        },
+        default: {},
+    });
 }

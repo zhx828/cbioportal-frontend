@@ -68,6 +68,7 @@ import {
     IMutationalSignatureMeta,
 } from 'shared/model/MutationalSignature';
 import {
+    CLINICAL_ATTRIBUTE_ID_ENUM,
     MOLECULAR_PROFILE_MUTATIONS_SUFFIX,
     MOLECULAR_PROFILE_UNCALLED_MUTATIONS_SUFFIX,
 } from 'shared/constants';
@@ -1620,6 +1621,113 @@ export function makeGetOncoKbCnaAnnotationForOncoprint(
             }
         });
     }
+}
+
+export function getSampleClinicalDataMapByThreshold(
+    clinicalData: ClinicalData[],
+    clinicalAttributeId: string,
+    threshold: number
+) {
+    return _.reduce(
+        clinicalData,
+        (acc, next) => {
+            if (next.clinicalAttributeId === clinicalAttributeId) {
+                const value = getNumberClinicalDataValue(next);
+                if (value && value >= threshold) {
+                    acc[next.sampleId] = next;
+                }
+            }
+            return acc;
+        },
+        {} as { [key: string]: ClinicalData }
+    );
+}
+
+export function getNumberClinicalDataValue(
+    clinicalData: ClinicalData
+): number | undefined {
+    if (Number.isNaN(clinicalData.value)) {
+        return undefined;
+    } else {
+        return Number(clinicalData.value);
+    }
+}
+
+export function getSampleNumberClinicalDataValue(
+    clinicalData: ClinicalData[],
+    sampleId: string,
+    clinicalAttributeId: string
+): number | undefined {
+    const sampleMsiData = clinicalData.find(
+        clinical =>
+            clinical.clinicalAttributeId === clinicalAttributeId &&
+            clinical.sampleId === sampleId
+    );
+    if (sampleMsiData) {
+        return getNumberClinicalDataValue(sampleMsiData);
+    }
+    return undefined;
+}
+
+export type SampleCancerTypeMap = {
+    cancerType: string | undefined;
+    cancerTypeDetailed: string | undefined;
+    studyCancerType: string | undefined;
+};
+
+export type OtherBiomarkerQueryId = {
+    sampleId: string;
+    type: OtherBiomarkersQueryType;
+};
+
+export const OTHER_BIOMARKERS_QUERY_ID_SEPARATOR = '-&-';
+
+export function getOtherBiomarkersQueryId(query: OtherBiomarkerQueryId) {
+    return query.sampleId + OTHER_BIOMARKERS_QUERY_ID_SEPARATOR + query.type;
+}
+
+// Follow the format from method getOtherBiomarkersQueryId
+export function parseOtherBiomarkerQueryId(
+    queryId: string
+): OtherBiomarkerQueryId {
+    const queryIdParts = queryId.split(OTHER_BIOMARKERS_QUERY_ID_SEPARATOR);
+    return {
+        sampleId: queryIdParts[0],
+        type: queryIdParts[1],
+    } as OtherBiomarkerQueryId;
+}
+
+export enum OtherBiomarkersQueryType {
+    MSIH = 'MSIH',
+    TMBH = 'TMBI',
+}
+
+export function getSampleTumorTypeMap(
+    sampleClinicalData: ClinicalData[],
+    studyCancerType: string | undefined
+): SampleCancerTypeMap {
+    const cancerType = sampleClinicalData.find(
+        attr =>
+            attr.clinicalAttributeId === CLINICAL_ATTRIBUTE_ID_ENUM.CANCER_TYPE
+    );
+    const cancerTypeDetailed = sampleClinicalData.find(
+        attr =>
+            attr.clinicalAttributeId ===
+            CLINICAL_ATTRIBUTE_ID_ENUM.CANCER_TYPE_DETAILED
+    );
+    return {
+        cancerType: cancerType?.value,
+        cancerTypeDetailed: cancerTypeDetailed?.value,
+        studyCancerType,
+    };
+}
+
+export function tumorTypeResolver(cancerTypeMap: SampleCancerTypeMap) {
+    return (
+        cancerTypeMap?.cancerTypeDetailed ||
+        cancerTypeMap?.cancerType ||
+        cancerTypeMap?.studyCancerType
+    );
 }
 
 export function annotateMolecularDatum(
