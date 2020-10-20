@@ -9,6 +9,7 @@ import OncoKbCard from './OncoKbCard';
 import { OncoKbCardDataType } from './OncoKbHelper';
 
 export interface IOncoKbTooltipProps {
+    type: OncoKbCardDataType;
     indicator?: IndicatorQueryResp;
     pubMedCache?: MobxCache;
     handleFeedbackOpen?: () => void;
@@ -62,7 +63,7 @@ export default class OncoKbTooltip extends React.Component<
         if (this.props.geneNotExist) {
             tooltipContent = (
                 <OncoKbCard
-                    type={OncoKbCardDataType.TX}
+                    type={this.props.type}
                     usingPublicOncoKbInstance={
                         this.props.usingPublicOncoKbInstance
                     }
@@ -83,7 +84,7 @@ export default class OncoKbTooltip extends React.Component<
             const pmidData: ICache<any> = this.pmidData;
             tooltipContent = (
                 <OncoKbCard
-                    type={OncoKbCardDataType.TX}
+                    type={this.props.type}
                     usingPublicOncoKbInstance={
                         this.props.usingPublicOncoKbInstance
                     }

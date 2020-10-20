@@ -1,6 +1,7 @@
 import request from 'superagent';
 import { ITrial } from '../model/ClinicalTrial';
 import { AugmentedData, default as LazyMobXCache } from '../lib/LazyMobXCache';
+import { getOncoKbApiUrl } from 'shared/api/urls';
 
 export type TrialsRecords = {
     [cancerType: string]: ITrial[];
@@ -15,8 +16,7 @@ async function fetch(
 ): Promise<AugmentedData<ITrial[], string>[]> {
     const trialsRecords = await new Promise<TrialsRecords>(
         (resolve, reject) => {
-            const url =
-                'http://localhost:8888/oncokb/api/v1/trials/cancerTypes';
+            const url = getOncoKbApiUrl() + '/trials/cancerTypes';
             request
                 .post(url)
                 .set('Content-Type', 'application/json')
