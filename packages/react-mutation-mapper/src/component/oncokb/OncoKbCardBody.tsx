@@ -102,8 +102,6 @@ export const OncoKbCardBody: React.FunctionComponent<OncoKbCardBodyProps> = prop
                     eventKey={OncoKbCardDataType.TXS}
                     title="Therapeutic Implications"
                 >
-                    <p>{indicator.tumorTypeSummary}</p>
-
                     {indicator.treatments!.length > 0 && (
                         <div
                             style={{
@@ -154,6 +152,7 @@ export const OncoKbCardBody: React.FunctionComponent<OncoKbCardBodyProps> = prop
             <div style={{ padding: '10px' }}>
                 <p>{indicator.geneSummary}</p>
                 <p>{indicator.variantSummary}</p>
+                <p>{indicator.tumorTypeSummary}</p>
                 {props.usingPublicOncoKbInstance ? (
                     <p className={mainStyles.disclaimer}>
                         Therapeutic levels are not available in this instance of
