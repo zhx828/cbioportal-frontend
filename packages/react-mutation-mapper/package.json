@@ -47,7 +47,7 @@
     "jquery": "^3.2.1",
     "lodash": "^4.17.11",
     "mobxpromise": "github:cbioportal/mobxpromise#v1.0.2",
-    "oncokb-styles": "~0.1.2",
+    "oncokb-styles": "~0.2.0-alpha.5",
     "oncokb-ts-api-client": "^1.1.2",
     "react-collapse": "^4.0.3",
     "react-if": "^2.1.0",

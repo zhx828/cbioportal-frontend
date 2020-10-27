@@ -36,6 +36,7 @@ import {
     getGenomeNexusHgvsgUrl,
 } from '../../../shared/api/urls';
 import PubMedCache from 'shared/cache/PubMedCache';
+import ClinicalTrialsCache from 'shared/cache/ClinicalTrialsCache';
 import GenomeNexusCache from 'shared/cache/GenomeNexusCache';
 import GenomeNexusMutationAssessorCache from 'shared/cache/GenomeNexusMutationAssessorCache';
 import {
@@ -1732,6 +1733,10 @@ export class PatientViewPageStore {
 
     @cached get pubMedCache() {
         return new PubMedCache();
+    }
+
+    @cached get trialsCache() {
+        return new ClinicalTrialsCache();
     }
 
     @cached get copyNumberCountCache() {

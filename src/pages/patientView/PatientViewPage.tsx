@@ -1207,6 +1207,11 @@ export default class PatientViewPage extends React.Component<
                                                             .patientViewPageStore
                                                             .pubMedCache
                                                     }
+                                                    trialsCache={
+                                                        this
+                                                            .patientViewPageStore
+                                                            .trialsCache
+                                                    }
                                                     genomeNexusCache={
                                                         this
                                                             .patientViewPageStore
@@ -1288,6 +1293,10 @@ export default class PatientViewPage extends React.Component<
                                                     enableOncoKb={
                                                         AppConfig.serverConfig
                                                             .show_oncokb
+                                                    }
+                                                    enableClinicalTrials={
+                                                        AppConfig.serverConfig
+                                                            .show_clinical_trials
                                                     }
                                                     enableFunctionalImpact={
                                                         AppConfig.serverConfig
@@ -1430,6 +1439,10 @@ export default class PatientViewPage extends React.Component<
                                                             .patientViewPageStore
                                                             .usingPublicOncoKbInstance
                                                     }
+                                                    enableClinicalTrials={
+                                                        AppConfig.serverConfig
+                                                            .show_clinical_trials
+                                                    }
                                                     enableOncoKb={
                                                         AppConfig.serverConfig
                                                             .show_oncokb
@@ -1446,6 +1459,11 @@ export default class PatientViewPage extends React.Component<
                                                         this
                                                             .patientViewPageStore
                                                             .pubMedCache
+                                                    }
+                                                    trialsCache={
+                                                        this
+                                                            .patientViewPageStore
+                                                            .trialsCache
                                                     }
                                                     referenceGenes={
                                                         this
