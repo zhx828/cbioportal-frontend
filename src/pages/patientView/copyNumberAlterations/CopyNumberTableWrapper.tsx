@@ -18,7 +18,6 @@ import AnnotationColumnFormatter from './column/AnnotationColumnFormatter';
 import TumorColumnFormatter from '../mutation/column/TumorColumnFormatter';
 import SampleManager from '../SampleManager';
 import PubMedCache from 'shared/cache/PubMedCache';
-import ClinicalTrialsCache from 'shared/cache/ClinicalTrialsCache';
 import MrnaExprRankCache from 'shared/cache/MrnaExprRankCache';
 import { IGisticData } from 'shared/model/Gistic';
 import CopyNumberCountCache from '../clinicalInformation/CopyNumberCountCache';
@@ -50,10 +49,8 @@ type ICopyNumberTableWrapperProps = {
     oncoKbCancerGenes?: RemoteData<CancerGene[] | Error | undefined>;
     usingPublicOncoKbInstance: boolean;
     enableOncoKb?: boolean;
-    enableClinicalTrials?: boolean;
     enableCivic?: boolean;
     pubMedCache?: PubMedCache;
-    trialsCache?: ClinicalTrialsCache;
     referenceGenes: ReferenceGenomeGene[];
     data: DiscreteCopyNumberData[][];
     copyNumberCountCache?: CopyNumberCountCache;
@@ -215,10 +212,7 @@ export default class CopyNumberTableWrapper extends React.Component<
                     usingPublicOncoKbInstance: this.props
                         .usingPublicOncoKbInstance,
                     enableOncoKb: this.props.enableOncoKb as boolean,
-                    enableClinicalTrials: this.props
-                        .enableClinicalTrials as boolean,
                     pubMedCache: this.props.pubMedCache,
-                    trialsCache: this.props.trialsCache,
                     civicGenes: this.props.cnaCivicGenes,
                     civicVariants: this.props.cnaCivicVariants,
                     enableCivic: this.props.enableCivic as boolean,

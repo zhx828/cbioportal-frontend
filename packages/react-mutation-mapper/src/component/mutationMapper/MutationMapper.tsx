@@ -7,7 +7,6 @@ import { TableProps } from 'react-table';
 import { MobxCache, Mutation } from 'cbioportal-utils';
 
 import { DefaultPubMedCache } from '../../cache/DefaultPubMedCache';
-import { DefaultTrialsCache } from '../../cache/DefaultTrialsCache';
 import { MutationAlignerCache } from '../../cache/MutationAlignerCache';
 import { FilterResetPanel } from './FilterResetPanel';
 import { DataFilter } from '../../model/DataFilter';
@@ -70,7 +69,6 @@ export type MutationMapperProps = {
     mutationTableInitialSortDirection?: ColumnSortDirection;
     mutationRates?: MutationRate[];
     pubMedCache?: MobxCache;
-    trialsCache?: MobxCache;
     mutationAlignerCache?: MobxCache;
     // TODO annotateMutations?: boolean;
     dataFetcher?: MutationMapperDataFetcher;
@@ -237,12 +235,6 @@ export default class MutationMapper<
             : new DefaultPubMedCache();
     }
 
-    protected get trialsCache(): MobxCache {
-        return this.props.trialsCache
-            ? this.props.trialsCache!
-            : new DefaultTrialsCache();
-    }
-
     protected get mutationAlignerCache(): MobxCache {
         // mutationAlignerUrlTemplate property is ignored if a custom cache implementation is provided
         return this.props.mutationAlignerCache
@@ -313,7 +305,6 @@ export default class MutationMapper<
                         this.store.indexedVariantAnnotations
                     }
                     pubMedCache={this.pubMedCache}
-                    trialsCache={this.trialsCache}
                     info={this.mutationTableInfo}
                 />
             );

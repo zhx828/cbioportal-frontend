@@ -55,7 +55,6 @@ export interface IServerConfig {
     api_cache_limit: number;
     show_hotspot: boolean | undefined;
     show_oncokb: boolean;
-    show_clinical_trials: boolean;
     show_civic: boolean;
     show_genomenexus: boolean;
     show_genomenexus_annotation_sources: string;

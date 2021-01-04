@@ -26,7 +26,6 @@ import MyCancerGenome, {
     sortValue as myCancerGenomeSortValue,
 } from '../myCancerGenome/MyCancerGenome';
 import OncoKB, { sortValue as oncoKbSortValue } from '../oncokb/OncoKB';
-import ClinicalTrialsCard from '../ClinicalTrials/ClinicalTrialsCard';
 import HotspotAnnotation, {
     sortValue as hotspotSortValue,
 } from './HotspotAnnotation';
@@ -35,7 +34,6 @@ import { USE_DEFAULT_PUBLIC_INSTANCE_FOR_ONCOKB } from '../../util/DataFetcherUt
 export type AnnotationProps = {
     mutation?: Mutation;
     enableOncoKb: boolean;
-    enableClinicalTrials: boolean;
     enableMyCancerGenome: boolean;
     enableHotspot: boolean;
     enableCivic: boolean;
@@ -44,7 +42,6 @@ export type AnnotationProps = {
     oncoKbCancerGenes?: RemoteData<CancerGene[] | Error | undefined>;
     usingPublicOncoKbInstance: boolean;
     pubMedCache?: MobxCache;
-    trialsCache?: MobxCache;
     resolveEntrezGeneId?: (mutation: Mutation) => number;
     resolveTumorType?: (mutation: Mutation) => string;
     myCancerGenomeData?: IMyCancerGenomeData;
@@ -59,9 +56,7 @@ export type GenericAnnotationProps = {
     enableHotspot: boolean;
     enableMyCancerGenome: boolean;
     enableOncoKb: boolean;
-    enableClinicalTrials: boolean;
     pubMedCache?: MobxCache;
-    trialsCache?: MobxCache;
     userEmailAddress?: string;
 };
 
@@ -250,9 +245,7 @@ export function GenericAnnotation(props: GenericAnnotationProps): JSX.Element {
         enableHotspot,
         enableMyCancerGenome,
         enableOncoKb,
-        enableClinicalTrials,
         pubMedCache,
-        trialsCache,
         userEmailAddress,
     } = props;
 
@@ -272,18 +265,6 @@ export function GenericAnnotation(props: GenericAnnotationProps): JSX.Element {
                     userEmailAddress={userEmailAddress}
                 />
             )}
-            {enableClinicalTrials &&
-                enableOncoKb &&
-                annotation.oncoKbGeneExist &&
-                annotation.isOncoKbCancerGene && (
-                    <ClinicalTrialsCard
-                        hugoGeneSymbol={annotation.hugoGeneSymbol}
-                        status={annotation.oncoKbStatus}
-                        hideClosedTrials={true}
-                        indicator={annotation.oncoKbIndicator}
-                        trialsCache={trialsCache}
-                    />
-                )}
             {enableCivic && (
                 <Civic
                     civicEntry={annotation.civicEntry}
