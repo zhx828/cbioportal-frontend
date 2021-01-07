@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "description": "OncoKB, a comprehensive and curated precision oncology knowledge base, offers oncologists detailed, evidence-based information about individual somatic mutations and structural alterations present in patient tumors with the goal of supporting optimal treatment decisions.",
-    "version": "v1.1.0",
+    "version": "v1.2.0",
     "title": "OncoKB APIs",
     "contact": {
       "name": "OncoKB",
@@ -77,9 +77,17 @@
             ]
           },
           {
+            "name": "referenceGenome",
+            "in": "query",
+            "description": "Reference genome, either GRCh37 or GRCh38. The default is GRCh37",
+            "required": false,
+            "type": "string",
+            "default": "GRCh37"
+          },
+          {
             "name": "tumorType",
             "in": "query",
-            "description": "OncoTree(http://oncotree.mskcc.org) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
+            "description": "OncoTree(http://oncotree.info) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
             "required": false,
             "type": "string"
           },
@@ -175,9 +183,17 @@
             "type": "string"
           },
           {
+            "name": "referenceGenome",
+            "in": "query",
+            "description": "Reference genome, either GRCh37 or GRCh38. The default is GRCh37",
+            "required": false,
+            "type": "string",
+            "default": "GRCh37"
+          },
+          {
             "name": "tumorType",
             "in": "query",
-            "description": "OncoTree(http://oncotree.mskcc.org) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
+            "description": "OncoTree(http://oncotree.info) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
             "required": false,
             "type": "string"
           },
@@ -273,9 +289,17 @@
             "type": "string"
           },
           {
+            "name": "referenceGenome",
+            "in": "query",
+            "description": "Reference genome, either GRCh37 or GRCh38. The default is GRCh37",
+            "required": false,
+            "type": "string",
+            "default": "GRCh37"
+          },
+          {
             "name": "tumorType",
             "in": "query",
-            "description": "OncoTree(http://oncotree.mskcc.org) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
+            "description": "OncoTree(http://oncotree.info) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
             "required": false,
             "type": "string"
           },
@@ -386,6 +410,14 @@
             "type": "string"
           },
           {
+            "name": "referenceGenome",
+            "in": "query",
+            "description": "Reference genome, either GRCh37 or GRCh38. The default is GRCh37",
+            "required": false,
+            "type": "string",
+            "default": "GRCh37"
+          },
+          {
             "name": "consequence",
             "in": "query",
             "description": "Consequence. Exacmple: missense_variant",
@@ -422,7 +454,7 @@
           {
             "name": "tumorType",
             "in": "query",
-            "description": "OncoTree(http://oncotree.mskcc.org) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
+            "description": "OncoTree(http://oncotree.info) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
             "required": false,
             "type": "string"
           },
@@ -565,9 +597,17 @@
             "default": false
           },
           {
+            "name": "referenceGenome",
+            "in": "query",
+            "description": "Reference genome, either GRCh37 or GRCh38. The default is GRCh37",
+            "required": false,
+            "type": "string",
+            "default": "GRCh37"
+          },
+          {
             "name": "tumorType",
             "in": "query",
-            "description": "OncoTree(http://oncotree.mskcc.org) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
+            "description": "OncoTree(http://oncotree.info) tumor type name. The field supports OncoTree Code, OncoTree Name and OncoTree Main type. Example: Melanoma",
             "required": false,
             "type": "string"
           },
@@ -952,6 +992,13 @@
         "id": {
           "type": "string"
         },
+        "referenceGenome": {
+          "type": "string",
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ]
+        },
         "tumorType": {
           "type": "string"
         }
@@ -964,7 +1011,22 @@
           "type": "integer",
           "format": "int32"
         },
+        "grch37Isoform": {
+          "type": "string"
+        },
+        "grch37RefSeq": {
+          "type": "string"
+        },
+        "grch38Isoform": {
+          "type": "string"
+        },
+        "grch38RefSeq": {
+          "type": "string"
+        },
         "highestResistancLevel": {
+          "type": "string"
+        },
+        "highestResistanceLevel": {
           "type": "string"
         },
         "highestSensitiveLevel": {
@@ -973,14 +1035,8 @@
         "hugoSymbol": {
           "type": "string"
         },
-        "isoform": {
-          "type": "string"
-        },
         "oncogene": {
           "type": "boolean"
-        },
-        "refSeq": {
-          "type": "string"
         },
         "summary": {
           "type": "string"
@@ -1022,6 +1078,13 @@
         "proteinStart": {
           "type": "integer",
           "format": "int32"
+        },
+        "referenceGenome": {
+          "type": "string",
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ]
         },
         "svType": {
           "type": "string",
@@ -1068,10 +1131,19 @@
         "foundationHeme": {
           "type": "boolean"
         },
-        "hugoSymbol": {
+        "grch37Isoform": {
           "type": "string"
         },
-        "isoform": {
+        "grch37RefSeq": {
+          "type": "string"
+        },
+        "grch38Isoform": {
+          "type": "string"
+        },
+        "grch38RefSeq": {
+          "type": "string"
+        },
+        "hugoSymbol": {
           "type": "string"
         },
         "mSKHeme": {
@@ -1089,9 +1161,6 @@
         },
         "oncokbAnnotated": {
           "type": "boolean"
-        },
-        "refSeq": {
-          "type": "string"
         },
         "sangerCGC": {
           "type": "boolean"
@@ -1236,6 +1305,13 @@
         "proteinStart": {
           "type": "integer",
           "format": "int32"
+        },
+        "referenceGenome": {
+          "type": "string",
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ]
         },
         "tumorType": {
           "type": "string"
@@ -1407,6 +1483,13 @@
         "id": {
           "type": "string"
         },
+        "referenceGenome": {
+          "type": "string",
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ]
+        },
         "tumorType": {
           "type": "string"
         }
@@ -1456,6 +1539,13 @@
         "id": {
           "type": "string"
         },
+        "referenceGenome": {
+          "type": "string",
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ]
+        },
         "tumorType": {
           "type": "string"
         }
@@ -1499,6 +1589,13 @@
         },
         "id": {
           "type": "string"
+        },
+        "referenceGenome": {
+          "type": "string",
+          "enum": [
+            "GRCh37",
+            "GRCh38"
+          ]
         },
         "structuralVariantType": {
           "type": "string",

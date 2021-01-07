@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as _ from 'lodash';
-import { action, computed, observable } from 'mobx';
+import { action, computed, makeObservable, observable } from 'mobx';
 import autobind from 'autobind-decorator';
 import {
     PatientTreatmentRow,
@@ -15,14 +15,15 @@ import { SortDirection } from 'shared/components/lazyMobXTable/LazyMobXTable';
 type TreatmentsTableProps = {
     filters: string[][];
     tableType: TreatmentTableType;
-    onUserSelection: (value: string[][]) => void;
+    onSubmitSelection: (value: string[][]) => void;
+    onChangeSelectedRows: (rowsKeys: string[]) => void;
+    selectedRowsKeys: string[];
 };
 
 export abstract class TreatmentsTable<
     P extends TreatmentsTableProps
 > extends React.Component<P, {}> {
     @observable protected _selectionType: SelectionOperatorEnum;
-    @observable protected selectedRowsKeys: string[] = [];
     @observable protected sortDirection: SortDirection;
     @observable protected modalSettings: {
         modalOpen: boolean;
@@ -34,6 +35,11 @@ export abstract class TreatmentsTable<
 
     abstract get preSelectedRowsKeys(): string[];
 
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
+
     @computed
     get flattenedFilters(): string[] {
         return _.flatMap(this.props.filters);
@@ -42,7 +48,7 @@ export abstract class TreatmentsTable<
     @computed
     get allSelectedRowsKeysSet() {
         return stringListToSet([
-            ...this.selectedRowsKeys,
+            ...this.props.selectedRowsKeys,
             ...this.preSelectedRowsKeys,
         ]);
     }
@@ -89,8 +95,7 @@ export abstract class TreatmentsTable<
         return !!this.allSelectedRowsKeysSet[uniqueKey];
     }
 
-    @autobind
-    @action
+    @action.bound
     toggleModal(panelName: string) {
         this.modalSettings.modalOpen = !this.modalSettings.modalOpen;
         if (!this.modalSettings.modalOpen) {
@@ -99,38 +104,43 @@ export abstract class TreatmentsTable<
         this.modalSettings.modalPanelName = panelName;
     }
 
-    @autobind
-    @action
+    @action.bound
     closeModal() {
         this.modalSettings.modalOpen = !this.modalSettings.modalOpen;
     }
 
-    @autobind
-    @action
-    togglePreSelectRow(uniqueKey: string) {
-        const record = _.find(this.selectedRowsKeys, key => key === uniqueKey);
+    @action.bound
+    toggleSelectRow(uniqueKey: string) {
+        const record = _.find(
+            this.props.selectedRowsKeys,
+            key => key === uniqueKey
+        );
         if (_.isUndefined(record)) {
-            this.selectedRowsKeys.push(uniqueKey);
+            this.props.onChangeSelectedRows(
+                this.props.selectedRowsKeys.concat([uniqueKey])
+            );
         } else {
-            this.selectedRowsKeys = _.xorBy(this.selectedRowsKeys, [record]);
-        }
-    }
-
-    @autobind
-    @action
-    afterSelectingRows() {
-        if (this.selectionType === SelectionOperatorEnum.UNION) {
-            this.props.onUserSelection([this.selectedRowsKeys]);
-        } else {
-            this.props.onUserSelection(
-                this.selectedRowsKeys.map(selectedRowsKey => [selectedRowsKey])
+            this.props.onChangeSelectedRows(
+                _.xorBy(this.props.selectedRowsKeys, [record])
             );
         }
-        this.selectedRowsKeys = [];
     }
 
-    @autobind
-    @action
+    @action.bound
+    afterSelectingRows() {
+        if (this.selectionType === SelectionOperatorEnum.UNION) {
+            this.props.onSubmitSelection([this.props.selectedRowsKeys]);
+        } else {
+            this.props.onSubmitSelection(
+                this.props.selectedRowsKeys.map(selectedRowsKey => [
+                    selectedRowsKey,
+                ])
+            );
+        }
+        this.props.onChangeSelectedRows([]);
+    }
+
+    @action.bound
     toggleSelectionOperator() {
         const selectionType = this._selectionType || this.selectionType;
         if (selectionType === SelectionOperatorEnum.INTERSECTION) {

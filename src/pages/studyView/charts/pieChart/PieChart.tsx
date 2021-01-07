@@ -7,7 +7,7 @@ import {
     VictoryLegend,
     VictoryPie,
 } from 'victory';
-import { action, computed, observable, toJS } from 'mobx';
+import { action, computed, observable, toJS, makeObservable } from 'mobx';
 import _ from 'lodash';
 import {
     getFrequencyStr,
@@ -31,6 +31,7 @@ export interface IPieChartProps {
     height: number;
     data: ClinicalDataCountSummary[];
     filters: string[];
+    openComparisonPage?: () => void;
     onUserSelection: (values: string[]) => void;
     placement: 'left' | 'right';
     patientAttribute: boolean;
@@ -45,6 +46,7 @@ export default class PieChart extends React.Component<IPieChartProps, {}>
 
     constructor(props: IPieChartProps) {
         super(props);
+        makeObservable(this);
     }
 
     @computed
@@ -105,8 +107,7 @@ export default class PieChart extends React.Component<IPieChartProps, {}>
     @observable isTooltipHovered: boolean = false;
     @observable tooltipHighlightedRow: string | undefined = undefined;
 
-    @autobind
-    @action
+    @action.bound
     private highlightedRow(value: string): void {
         this.tooltipHighlightedRow = value;
     }
@@ -308,6 +309,7 @@ export default class PieChart extends React.Component<IPieChartProps, {}>
                     <ClinicalTable
                         width={300}
                         height={150}
+                        openComparisonPage={this.props.openComparisonPage}
                         data={this.props.data}
                         label={this.props.label}
                         labelDescription={this.props.labelDescription}

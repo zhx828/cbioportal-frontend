@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { observer } from 'mobx-react';
-import { computed, observable } from 'mobx';
+import { computed, makeObservable, observable } from 'mobx';
 import { bind } from 'bind-decorator';
 import {
     VictoryAxis,
@@ -26,7 +26,7 @@ import { wrapTick } from './TickUtils';
 import { iterateOverEntries } from './TablePlotUtils';
 
 export interface ITablePlotProps {
-    svgId?: string;
+    svgRef?: (elt: SVGElement | null) => void;
     horzData: IStringAxisData['data'];
     vertData: IStringAxisData['data'];
     horzCategoryOrder?: string[];
@@ -126,6 +126,11 @@ class VictoryTableCell extends React.Component<IVictoryTableCellProps, {}> {
 @observer
 export default class TablePlot extends React.Component<ITablePlotProps, {}> {
     @observable.ref private container: HTMLDivElement;
+
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
 
     @bind
     private containerRef(container: HTMLDivElement) {
@@ -399,7 +404,7 @@ export default class TablePlot extends React.Component<ITablePlotProps, {}> {
                     style={{ width: this.svgWidth, height: this.svgHeight }}
                 >
                     <svg
-                        id={this.props.svgId || ''}
+                        ref={this.props.svgRef}
                         style={{
                             width: this.svgWidth,
                             height: this.svgHeight,

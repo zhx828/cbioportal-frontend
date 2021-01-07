@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as _ from 'lodash';
 import { observer } from 'mobx-react';
-import { computed } from 'mobx';
+import { computed, makeObservable } from 'mobx';
 import styles from './styles.module.scss';
 import {
     DataFilterValue,
@@ -16,6 +16,7 @@ import {
     getUniqueKeyFromMolecularProfileIds,
     ChartType,
     getGenomicChartUniqueKey,
+    getGenericAssayChartUniqueKey,
 } from 'pages/studyView/StudyViewUtils';
 import {
     ChartMeta,
@@ -63,6 +64,10 @@ export interface IUserSelectionsProps {
         uniqueKey: string,
         values: DataFilterValue[]
     ) => void;
+    updateGenericAssayDataIntervalFilter: (
+        uniqueKey: string,
+        values: DataFilterValue[]
+    ) => void;
     removeCustomSelectionFilter: () => void;
     removeComparisonGroupSelectionFilter: () => void;
     clearAllFilters: () => void;
@@ -87,6 +92,10 @@ export default class UserSelections extends React.Component<
     IUserSelectionsProps,
     {}
 > {
+    constructor(props: IUserSelectionsProps) {
+        super(props);
+        makeObservable(this);
+    }
     @computed
     get showFilters() {
         //return isFiltered(this.props.filter)
@@ -318,6 +327,55 @@ export default class UserSelections extends React.Component<
             components
         );
 
+        // Generic Assay chart filters
+        let genericAssayFilterComponents: JSX.Element[] = [];
+        if (this.props.filter.genericAssayDataFilters) {
+            _.forEach(
+                this.props.filter.genericAssayDataFilters,
+                genericAssayDataFilter => {
+                    const uniqueKey = getGenericAssayChartUniqueKey(
+                        genericAssayDataFilter.stableId,
+                        genericAssayDataFilter.profileType
+                    );
+                    const chartMeta = this.props.attributesMetaSet[uniqueKey];
+                    if (chartMeta) {
+                        genericAssayFilterComponents.push(
+                            <div className={styles.parentGroupLogic}>
+                                <GroupLogic
+                                    components={[
+                                        <span
+                                            className={
+                                                styles.filterClinicalAttrName
+                                            }
+                                        >
+                                            {chartMeta.displayName}
+                                        </span>,
+                                        <PillTag
+                                            content={intervalFiltersDisplayValue(
+                                                genericAssayDataFilter.values
+                                            )}
+                                            backgroundColor={
+                                                STUDY_VIEW_CONFIG.colors.theme
+                                                    .clinicalFilterContent
+                                            }
+                                            onDelete={() =>
+                                                this.props.updateGenericAssayDataIntervalFilter(
+                                                    chartMeta.uniqueKey,
+                                                    []
+                                                )
+                                            }
+                                        />,
+                                    ]}
+                                    operation={':'}
+                                    group={false}
+                                />
+                            </div>
+                        );
+                    }
+                }
+            );
+        }
+
         // All custom charts
         if (!_.isEmpty(this.props.customChartsFilter)) {
             _.reduce(
@@ -458,6 +516,11 @@ export default class UserSelections extends React.Component<
                     />
                 </div>
             );
+        }
+
+        // push to components
+        if (genericAssayFilterComponents) {
+            components.push(...genericAssayFilterComponents);
         }
 
         if (

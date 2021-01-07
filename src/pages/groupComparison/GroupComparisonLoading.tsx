@@ -2,7 +2,7 @@ import * as React from 'react';
 import { observer } from 'mobx-react';
 import LoadingIndicator from '../../shared/components/loadingIndicator/LoadingIndicator';
 import { AppStore } from '../../AppStore';
-import { computed, observable } from 'mobx';
+import { computed, observable, makeObservable } from 'mobx';
 import { getStudySummaryUrl } from '../../shared/api/urls';
 
 export interface IGroupComparisonLoadingProps {
@@ -33,6 +33,8 @@ export default class GroupComparisonLoading extends React.Component<
     constructor(props: IGroupComparisonLoadingProps) {
         super(props);
 
+        makeObservable(this);
+
         (window as any).ping = () => {
             this.pingedFromStudyView = true;
         };
@@ -51,7 +53,7 @@ export default class GroupComparisonLoading extends React.Component<
     }
 
     render() {
-        const query = (window as any).routingStore.location.query as Partial<
+        const query = (window as any).routingStore.query as Partial<
             GroupComparisonLoadingParams
         >;
         if (this.studyViewWindowClosed) {

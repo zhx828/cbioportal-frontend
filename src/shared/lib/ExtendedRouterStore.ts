@@ -1,8 +1,9 @@
 import { RouterStore } from 'mobx-react-router';
-import { action } from 'mobx';
+import { action, computed, makeObservable } from 'mobx';
 import * as _ from 'lodash';
 import URL, { QueryParams } from 'url';
 import sessionClient from '../api/sessionServiceInstance';
+import { parse } from 'qs';
 
 export function getSessionKey(hash: string) {
     return `session_${hash}`;
@@ -49,6 +50,11 @@ export function normalizeLegacySession(sessionData: any) {
 }
 
 export default class ExtendedRouterStore extends RouterStore {
+    constructor() {
+        super();
+        makeObservable(this);
+    }
+
     @action updateRoute(
         newParams: QueryParams,
         path: string | undefined = undefined,
@@ -62,7 +68,7 @@ export default class ExtendedRouterStore extends RouterStore {
         // but if we're clearing, we want to use newParams ONLY and wipe out existing query;
         let newQuery: any;
         if (!clear) {
-            newQuery = _.clone(this.location.query);
+            newQuery = _.clone(this.query);
             _.each(newParams, (v, k: string) => {
                 if (v === undefined) {
                     delete newQuery[k];
@@ -91,5 +97,12 @@ export default class ExtendedRouterStore extends RouterStore {
                 hash: this.location.hash,
             })
         );
+    }
+
+    @computed get query() {
+        return parse(this.location.search, {
+            depth: 0,
+            ignoreQueryPrefix: true,
+        }) as any;
     }
 }

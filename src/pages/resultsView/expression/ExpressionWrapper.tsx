@@ -8,7 +8,7 @@ import {
     NumericGeneMolecularData,
     MolecularProfile,
 } from 'cbioportal-ts-api-client';
-import { computed, observable } from 'mobx';
+import { computed, observable, makeObservable } from 'mobx';
 import {
     ExpressionStyle,
     expressionTooltip,
@@ -22,11 +22,8 @@ import { If, Then, Else } from 'react-if';
 import jStat from 'jStat';
 import classNames from 'classnames';
 import { MSKTab, MSKTabs } from '../../../shared/components/MSKTabs/MSKTabs';
-import {
-    CoverageInformation,
-    isPanCanStudy,
-    isTCGAProvStudy,
-} from '../ResultsViewPageStoreUtils';
+import { isPanCanStudy, isTCGAProvStudy } from '../ResultsViewPageStoreUtils';
+import { CoverageInformation } from '../../../shared/lib/GenePanelUtils';
 import {
     CNA_STROKE_WIDTH,
     IBoxScatterPlotPoint,
@@ -55,6 +52,7 @@ import BoxScatterPlot, {
 import { ColoringType, PlotType } from '../plots/PlotsTab';
 import AlterationFilterWarning from '../../../shared/components/banners/AlterationFilterWarning';
 import CaseFilterWarning from '../../../shared/components/banners/CaseFilterWarning';
+import { getBoxWidth } from 'shared/lib/boxPlotUtils';
 
 export interface ExpressionWrapperProps {
     store: ResultsViewPageStore;
@@ -94,6 +92,7 @@ export default class ExpressionWrapper extends React.Component<
 > {
     constructor(props: ExpressionWrapperProps) {
         super(props);
+        makeObservable(this);
         this.selectedGene = props.genes[0];
         (window as any).box = this;
     }
@@ -146,14 +145,7 @@ export default class ExpressionWrapper extends React.Component<
     }
 
     @computed get boxWidth() {
-        const maxWidth = 80; // width with 1 box
-        const minWidth = 18; // width with 33 boxes - value of 18 is calibrated to fit all 33 tcga pan-can atlas studies
-
-        // solving linear equation for maxWidth at 1 and minWidth at 33
-        const m = (minWidth - maxWidth) / 32;
-        const b = maxWidth - m;
-
-        return Math.max(m * this.selectedStudies.length + b, minWidth);
+        return getBoxWidth(this.selectedStudies.length);
     }
 
     readonly sampleStudyData = remoteData<IStringAxisData>({

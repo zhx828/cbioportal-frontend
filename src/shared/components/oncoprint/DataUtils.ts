@@ -2,6 +2,7 @@ import {
     AnnotatedExtendedAlteration,
     AnnotatedMutation,
     CaseAggregatedData,
+    CustomDriverNumericGeneMolecularData,
     ExtendedAlteration,
 } from '../../../pages/resultsView/ResultsViewPageStore';
 import {
@@ -28,10 +29,8 @@ import {
 } from '../../lib/oql/AccessorsForOqlFilter';
 import _ from 'lodash';
 import { MutationSpectrum } from 'cbioportal-ts-api-client';
-import {
-    CoverageInformation,
-    ExtendedClinicalAttribute,
-} from '../../../pages/resultsView/ResultsViewPageStoreUtils';
+import { ExtendedClinicalAttribute } from '../../../pages/resultsView/ResultsViewPageStoreUtils';
+import { CoverageInformation } from '../../lib/GenePanelUtils';
 import { MUTATION_STATUS_GERMLINE } from 'shared/constants';
 import { SpecialAttribute } from '../../cache/ClinicalDataCache';
 import { stringListToIndexSet } from 'cbioportal-frontend-commons';
@@ -161,14 +160,18 @@ export function fillGeneticTrackDatum(
         const molecularAlterationType = event.molecularProfileAlterationType;
         switch (molecularAlterationType) {
             case 'COPY_NUMBER_ALTERATION':
-                const cnaEvent =
+                let oncoprintCnaType =
                     cnaDataToString[
-                        event.value as NumericGeneMolecularData['value']
+                        event.value as CustomDriverNumericGeneMolecularData['value']
                     ];
-                if (cnaEvent) {
+                if (oncoprintCnaType) {
+                    if (event.putativeDriver) {
+                        oncoprintCnaType += '_rec';
+                    }
                     // not diploid
-                    dispCnaCounts[cnaEvent] = dispCnaCounts[cnaEvent] || 0;
-                    dispCnaCounts[cnaEvent] += 1;
+                    dispCnaCounts[oncoprintCnaType] =
+                        dispCnaCounts[oncoprintCnaType] || 0;
+                    dispCnaCounts[oncoprintCnaType] += 1;
                 }
                 break;
             case 'MRNA_EXPRESSION':
@@ -293,8 +296,9 @@ export function makeGeneticTrackData(
                     p => !!_selectedMolecularProfiles[p.molecularProfileId]
                 ); // filter out coverage information about non-selected profiles
 
-            let sampleData =
-                caseAggregatedAlterationData[sample.uniqueSampleKey];
+            const sampleData =
+                caseAggregatedAlterationData[sample.uniqueSampleKey] || [];
+
             ret.push(
                 fillGeneticTrackDatum(
                     newDatum,
@@ -338,8 +342,9 @@ export function makeGeneticTrackData(
                     p => !!_selectedMolecularProfiles[p.molecularProfileId]
                 ); // filter out coverage information about non-selected profiles
 
-            let patientData =
-                caseAggregatedAlterationData[patient.uniquePatientKey];
+            const patientData =
+                caseAggregatedAlterationData[patient.uniquePatientKey] || [];
+
             ret.push(
                 fillGeneticTrackDatum(
                     newDatum,

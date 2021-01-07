@@ -4,12 +4,12 @@ import LazyMobXTable, {
     Column,
 } from '../../../shared/components/lazyMobXTable/LazyMobXTable';
 import { observer } from 'mobx-react';
-import { computed } from 'mobx';
+import { computed, makeObservable } from 'mobx';
 import { Checkbox } from 'react-bootstrap';
 import { formatSignificanceValueWithStyle } from 'shared/lib/FormatUtils';
 import { toConditionalPrecision } from 'shared/lib/NumberUtils';
 import styles from './styles.module.scss';
-import { ExpressionEnrichmentRow } from 'shared/model/ExpressionEnrichmentRow';
+import { ExpressionEnrichmentRow } from 'shared/model/EnrichmentRow';
 import { cytobandFilter } from 'pages/resultsView/ResultsViewTableUtils';
 import autobind from 'autobind-decorator';
 import { EnrichmentsTableDataStore } from 'pages/resultsView/enrichments/EnrichmentsTableDataStore';
@@ -48,6 +48,10 @@ export default class ExpressionEnrichmentTable extends React.Component<
     IExpressionEnrichmentTableProps,
     {}
 > {
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
     public static defaultProps = {
         columns: [
             ExpressionEnrichmentTableColumnType.GENE,

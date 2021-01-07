@@ -10,10 +10,8 @@ import {
     Sample,
 } from 'cbioportal-ts-api-client';
 import { MobxPromise } from 'mobxpromise';
-import {
-    CoverageInformation,
-    ExtendedClinicalAttribute,
-} from '../../pages/resultsView/ResultsViewPageStoreUtils';
+import { ExtendedClinicalAttribute } from '../../pages/resultsView/ResultsViewPageStoreUtils';
+import { CoverageInformation } from '../lib/GenePanelUtils';
 import _ from 'lodash';
 import client from '../api/cbioportalClientInstance';
 import internalClient from '../api/cbioportalInternalClientInstance';
@@ -25,6 +23,8 @@ import {
     getClinicalAttributeColoring,
     OncoprintClinicalData,
 } from './ClinicalDataCacheUtils';
+import { ChartUserSetting } from 'pages/studyView/StudyViewPageStore';
+import hashString from 'shared/lib/hashString';
 
 export enum SpecialAttribute {
     MutationSpectrum = 'NO_CONTEXT_MUTATION_SIGNATURE',
@@ -70,6 +70,17 @@ export function clinicalAttributeIsINCOMPARISONGROUP(attribute: {
 }) {
     return attribute.clinicalAttributeId.startsWith(
         SpecialAttribute.ComparisonGroupPrefix
+    );
+}
+
+function clinicalAttributeisCustomChart(
+    attribute: {
+        clinicalAttributeId: string;
+    },
+    customCharts: { clinicalAttributeId: string }[]
+) {
+    return customCharts.find(
+        c => c.clinicalAttributeId === attribute.clinicalAttributeId
     );
 }
 
@@ -174,7 +185,8 @@ async function fetch(
     patients: Patient[],
     studyToMutationMolecularProfile: { [studyId: string]: MolecularProfile },
     studyIdToStudy: { [studyId: string]: CancerStudy },
-    coverageInformation: CoverageInformation
+    coverageInformation: CoverageInformation,
+    customChartClinicalAttributes: ExtendedClinicalAttribute[]
 ): Promise<OncoprintClinicalData> {
     let ret: OncoprintClinicalData;
     let studyToSamples: { [studyId: string]: Sample[] };
@@ -219,7 +231,7 @@ async function fetch(
                         studyId: sample.studyId,
                         uniquePatientKey: sample.uniquePatientKey,
                         uniqueSampleKey: sample.uniqueSampleKey,
-                        value: studyIdToStudy[sample.studyId].name,
+                        value: studyIdToStudy[sample.studyId].shortName,
                     } as ClinicalData)
             );
             break;
@@ -243,6 +255,13 @@ async function fetch(
                 ret = makeProfiledData(attribute, samples, coverageInformation);
             } else if (clinicalAttributeIsINCOMPARISONGROUP(attribute)) {
                 ret = makeComparisonGroupData(attribute, samples);
+            } else if (
+                clinicalAttributeisCustomChart(
+                    attribute,
+                    customChartClinicalAttributes
+                )
+            ) {
+                ret = attribute.data!;
             } else {
                 ret = await client.fetchClinicalDataUsingPOST({
                     clinicalDataType: attribute.patientAttribute
@@ -284,7 +303,8 @@ export class UnfilteredClinicalDataCache extends MobxPromiseCache<
             [studyId: string]: MolecularProfile;
         }>,
         studyIdToStudyPromise: MobxPromise<{ [studyId: string]: CancerStudy }>,
-        coverageInformationPromise: MobxPromise<CoverageInformation>
+        coverageInformationPromise: MobxPromise<CoverageInformation>,
+        customChartClinicalAttributes: MobxPromise<ExtendedClinicalAttribute[]>
     ) {
         super(
             q => ({
@@ -294,6 +314,7 @@ export class UnfilteredClinicalDataCache extends MobxPromiseCache<
                     studyToMutationMolecularProfilePromise,
                     studyIdToStudyPromise,
                     coverageInformationPromise,
+                    customChartClinicalAttributes,
                 ],
                 invoke: async () => {
                     const data: OncoprintClinicalData = await fetch(
@@ -302,7 +323,8 @@ export class UnfilteredClinicalDataCache extends MobxPromiseCache<
                         patientsPromise.result!,
                         studyToMutationMolecularProfilePromise.result!,
                         studyIdToStudyPromise.result!,
-                        coverageInformationPromise.result!
+                        coverageInformationPromise.result!,
+                        customChartClinicalAttributes.result!
                     );
                     return {
                         data,
@@ -334,14 +356,16 @@ export default class ClinicalDataCache extends MobxPromiseCache<
         }>,
         filteredPatientKeyToPatient: MobxPromise<{
             [uniquePatientKey: string]: Patient;
-        }>
+        }>,
+        customChartClinicalAttributes: MobxPromise<ExtendedClinicalAttribute[]>
     ) {
         const unfilteredClinicalDataCache = new UnfilteredClinicalDataCache(
             samplesPromise,
             patientsPromise,
             studyToMutationMolecularProfilePromise,
             studyIdToStudyPromise,
-            coverageInformationPromise
+            coverageInformationPromise,
+            customChartClinicalAttributes
         );
         super(
             q => ({

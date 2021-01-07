@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { observer, Observer } from 'mobx-react';
-import { computed, observable, action } from 'mobx';
+import { computed, observable, action, makeObservable } from 'mobx';
 import { bind } from 'bind-decorator';
 import ifNotDefined from '../../lib/ifNotDefined';
 import { calculateBoxPlotModel } from '../../lib/boxPlotUtils';
@@ -54,6 +54,7 @@ export interface IBaseBoxScatterPlotPoint {
 
 export interface IBoxScatterPlotData<D extends IBaseBoxScatterPlotPoint> {
     label: string;
+    median: number;
     data: D[];
 }
 
@@ -87,7 +88,7 @@ export interface IBoxScatterPlotProps<D extends IBaseBoxScatterPlotPoint> {
     boxWidth?: number;
     legendLocationWidthThreshold?: number; // chart width after which we start putting the legend at the bottom of the plot
     boxCalculationFilter?: (d: D) => boolean; // determines which points are used for calculating the box
-    containerRef?: (svgContainer: SVGElement | null) => void;
+    svgRef?: (svgContainer: SVGElement | null) => void;
     compressXAxis?: boolean;
     legendTitle?: string | string[];
 }
@@ -131,6 +132,11 @@ export default class BoxScatterPlot<
     @observable private mousePosition = { x: 0, y: 0 };
 
     private scatterPlotTooltipHelper: ScatterPlotTooltipHelper = new ScatterPlotTooltipHelper();
+
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
 
     @bind
     private containerRef(container: HTMLDivElement) {
@@ -811,8 +817,7 @@ export default class BoxScatterPlot<
             });
     }
 
-    @autobind
-    @action
+    @action.bound
     private onMouseMove(e: React.MouseEvent<any>) {
         if (this.boxPlotTooltipModel !== null) {
             this.mousePosition.x = e.pageX;
@@ -840,8 +845,8 @@ export default class BoxScatterPlot<
                     viewBox={`0 0 ${this.svgWidth} ${this.svgHeight}`}
                     onMouseMove={this.onMouseMove}
                     ref={ref => {
-                        if (this.props.containerRef) {
-                            this.props.containerRef(ref);
+                        if (this.props.svgRef) {
+                            this.props.svgRef(ref);
                         }
                     }}
                 >

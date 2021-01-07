@@ -187,6 +187,12 @@ export type GeneXref = {
         'version': string
 
 };
+export type GeneralPopulationStats = {
+    'counts': SignalPopulationStats
+
+        'frequencies': SignalPopulationStats
+
+};
 export type GenomicLocation = {
     'chromosome': string
 
@@ -265,6 +271,14 @@ export type Hotspot = {
         'tumorCount': number
 
         'type': string
+
+};
+export type HrdScore = {
+    'fractionLoh': number
+
+        'lst': number
+
+        'ntelomericAi': number
 
 };
 export type IntegerRange = {
@@ -418,7 +432,11 @@ export type SignalMutation = {
 
         'endPosition': number
 
+        'generalPopulationStats': GeneralPopulationStats
+
         'hugoGeneSymbol': string
+
+        'mskExperReview': boolean
 
         'mutationStatus': string
 
@@ -432,6 +450,8 @@ export type SignalMutation = {
 
         'startPosition': number
 
+        'statsByTumorType': Array < StatsByTumorType >
+
         'variantAllele': string
 
 };
@@ -439,8 +459,58 @@ export type SignalMutationFilter = {
     'hugoSymbols': Array < string >
 
 };
+export type SignalPopulationStats = {
+    'afr': number
+
+        'asj': number
+
+        'asn': number
+
+        'eur': number
+
+        'impact': number
+
+        'oth': number
+
+};
+export type SignalQuery = {
+    'alteration': string
+
+        'description': string
+
+        'hugoSymbol': string
+
+        'matchType': "EXACT" | "STARTS_WITH" | "PARTIAL" | "NO_MATCH"
+
+        'queryType': "GENE" | "ALTERATION" | "VARIANT" | "REGION"
+
+        'region': string
+
+        'variant': string
+
+};
 export type Snpeff = {
     'license': string
+
+};
+export type StatsByTumorType = {
+    'ageAtDx': number
+
+        'fBiallelic': number
+
+        'fCancerTypeCount': number
+
+        'hrdScore': HrdScore
+
+        'msiScore': number
+
+        'nCancerTypeCount': number
+
+        'nwithSig': number
+
+        'tmb': number
+
+        'tumorType': string
 
 };
 export type TranscriptConsequenceSummary = {
@@ -466,9 +536,17 @@ export type TranscriptConsequenceSummary = {
 
         'hugoGeneSymbol': string
 
+        'polyphenPrediction': string
+
+        'polyphenScore': number
+
         'proteinPosition': IntegerRange
 
         'refSeq': string
+
+        'siftPrediction': string
+
+        'siftScore': number
 
         'transcriptId': string
 
@@ -2314,6 +2392,99 @@ export default class GenomeNexusAPIInternal {
         }): Promise < Array < SignalMutation >
         > {
             return this.fetchSignalMutationsByHgvsgGETUsingGETWithHttpInfo(parameters).then(function(response: request.Response) {
+                return response.body;
+            });
+        };
+    searchSignalByKeywordGETUsingGETURL(parameters: {
+        'keyword': string,
+        'limit' ? : number,
+        $queryParameters ? : any
+    }): string {
+        let queryParameters: any = {};
+        let path = '/signal/search';
+        if (parameters['keyword'] !== undefined) {
+            queryParameters['keyword'] = parameters['keyword'];
+        }
+
+        if (parameters['limit'] !== undefined) {
+            queryParameters['limit'] = parameters['limit'];
+        }
+
+        if (parameters.$queryParameters) {
+            Object.keys(parameters.$queryParameters).forEach(function(parameterName) {
+                var parameter = parameters.$queryParameters[parameterName];
+                queryParameters[parameterName] = parameter;
+            });
+        }
+        let keys = Object.keys(queryParameters);
+        return this.domain + path + (keys.length > 0 ? '?' + (keys.map(key => key + '=' + encodeURIComponent(queryParameters[key])).join('&')) : '');
+    };
+
+    /**
+     * Performs search by gene, protein change, variant or region.
+     * @method
+     * @name GenomeNexusAPIInternal#searchSignalByKeywordGETUsingGET
+     * @param {string} keyword - keyword. For example BRCA; BRAF V600; 13:32906640-32906640; 13:g.32890665G>A
+     * @param {integer} limit - Max number of matching results to return
+     */
+    searchSignalByKeywordGETUsingGETWithHttpInfo(parameters: {
+        'keyword': string,
+        'limit' ? : number,
+        $queryParameters ? : any,
+        $domain ? : string
+    }): Promise < request.Response > {
+        const domain = parameters.$domain ? parameters.$domain : this.domain;
+        const errorHandlers = this.errorHandlers;
+        const request = this.request;
+        let path = '/signal/search';
+        let body: any;
+        let queryParameters: any = {};
+        let headers: any = {};
+        let form: any = {};
+        return new Promise(function(resolve, reject) {
+            headers['Accept'] = 'application/json';
+            headers['Content-Type'] = 'application/json';
+
+            if (parameters['keyword'] !== undefined) {
+                queryParameters['keyword'] = parameters['keyword'];
+            }
+
+            if (parameters['keyword'] === undefined) {
+                reject(new Error('Missing required  parameter: keyword'));
+                return;
+            }
+
+            if (parameters['limit'] !== undefined) {
+                queryParameters['limit'] = parameters['limit'];
+            }
+
+            if (parameters.$queryParameters) {
+                Object.keys(parameters.$queryParameters).forEach(function(parameterName) {
+                    var parameter = parameters.$queryParameters[parameterName];
+                    queryParameters[parameterName] = parameter;
+                });
+            }
+
+            request('GET', domain + path, body, headers, queryParameters, form, reject, resolve, errorHandlers);
+
+        });
+    };
+
+    /**
+     * Performs search by gene, protein change, variant or region.
+     * @method
+     * @name GenomeNexusAPIInternal#searchSignalByKeywordGETUsingGET
+     * @param {string} keyword - keyword. For example BRCA; BRAF V600; 13:32906640-32906640; 13:g.32890665G>A
+     * @param {integer} limit - Max number of matching results to return
+     */
+    searchSignalByKeywordGETUsingGET(parameters: {
+            'keyword': string,
+            'limit' ? : number,
+            $queryParameters ? : any,
+            $domain ? : string
+        }): Promise < Array < SignalQuery >
+        > {
+            return this.searchSignalByKeywordGETUsingGETWithHttpInfo(parameters).then(function(response: request.Response) {
                 return response.body;
             });
         };

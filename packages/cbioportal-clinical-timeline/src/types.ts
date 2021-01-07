@@ -17,10 +17,11 @@ export interface TimelineTrackSpecification {
     label?: string;
     tracks?: TimelineTrackSpecification[];
     renderEvents?: (e: TimelineEvent[]) => JSX.Element | string;
-    renderTooltip?: (e: TimelineEvent) => JSX.Element | string;
+    renderTooltip?: (e: TimelineEvent) => JSX.Element | string | null; // null means use default tooltip
     sortSimultaneousEvents?: (e: TimelineEvent[]) => TimelineEvent[];
     trackType?: TimelineTrackType;
     getLineChartValue?: (e: TimelineEvent) => number | null;
+    disableHover?: boolean;
 }
 
 export interface TimelineTick {
@@ -43,4 +44,9 @@ export enum TickIntervalEnum {
     MONTH = 30.41666,
     YEAR = 365,
     DAY = 1,
+}
+
+export interface ZoomBounds {
+    start: number;
+    end: number;
 }

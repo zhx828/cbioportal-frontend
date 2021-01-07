@@ -3,7 +3,14 @@ import * as _ from 'lodash';
 import $ from 'jquery';
 import URL from 'url';
 import { inject, observer } from 'mobx-react';
-import { action, computed, observable, reaction, runInAction } from 'mobx';
+import {
+    action,
+    computed,
+    observable,
+    reaction,
+    runInAction,
+    makeObservable,
+} from 'mobx';
 import { ResultsViewPageStore } from './ResultsViewPageStore';
 import CancerSummaryContainer from 'pages/resultsView/cancerSummary/CancerSummaryContainer';
 import Mutations from './mutation/Mutations';
@@ -21,7 +28,7 @@ import { MSKTab, MSKTabs } from '../../shared/components/MSKTabs/MSKTabs';
 import { PageLayout } from '../../shared/components/PageLayout/PageLayout';
 import autobind from 'autobind-decorator';
 import { ITabConfiguration } from '../../shared/model/ITabConfiguration';
-import { getBrowserWindow } from 'cbioportal-frontend-commons';
+import { getBrowserWindow, remoteData } from 'cbioportal-frontend-commons';
 import CoExpressionTab from './coExpression/CoExpressionTab';
 import Helmet from 'react-helmet';
 import { showCustomTab } from '../../shared/lib/customTabs';
@@ -53,6 +60,7 @@ import OQLTextArea, {
 } from 'shared/components/GeneSelectionBox/OQLTextArea';
 import browser from 'bowser';
 import { QueryStore } from '../../shared/components/query/QueryStore';
+import UserMessager from 'shared/components/userMessager/UserMessage';
 
 export function initStore(
     appStore: AppStore,
@@ -110,6 +118,8 @@ export default class ResultsViewPage extends React.Component<
     constructor(props: IResultsViewPageProps) {
         super(props);
 
+        makeObservable(this);
+
         this.urlWrapper = new ResultsViewURLWrapper(props.routing);
 
         handleLegacySubmission(this.urlWrapper);
@@ -131,10 +141,6 @@ export default class ResultsViewPage extends React.Component<
                 this.urlWrapper
             );
         }
-    }
-
-    private handleTabChange(id: string, replace?: boolean) {
-        this.urlWrapper.updateURL({}, `results/${id}`, false, replace);
     }
 
     @autobind
@@ -417,52 +423,6 @@ export default class ResultsViewPage extends React.Component<
                     );
                 },
             },
-
-            {
-                id: ResultsViewTab.EXPRESSION,
-                hide: () => {
-                    return (
-                        this.resultsViewPageStore.expressionProfiles.result
-                            .length === 0 ||
-                        this.resultsViewPageStore.studies.result.length < 2
-                    );
-                },
-                getTab: () => {
-                    return (
-                        <MSKTab
-                            key={8}
-                            id={ResultsViewTab.EXPRESSION}
-                            linkText={'Expression'}
-                        >
-                            {store.studyIdToStudy.isComplete &&
-                                store.filteredAndAnnotatedMutations
-                                    .isComplete &&
-                                store.genes.isComplete &&
-                                store.coverageInformation.isComplete && (
-                                    <ExpressionWrapper
-                                        store={store}
-                                        studyMap={store.studyIdToStudy.result}
-                                        genes={store.genes.result}
-                                        expressionProfiles={
-                                            store.expressionProfiles
-                                        }
-                                        numericGeneMolecularDataCache={
-                                            store.numericGeneMolecularDataCache
-                                        }
-                                        mutations={
-                                            store.filteredAndAnnotatedMutations
-                                                .result!
-                                        }
-                                        coverageInformation={
-                                            store.coverageInformation.result
-                                        }
-                                    />
-                                )}
-                        </MSKTab>
-                    );
-                },
-            },
-
             {
                 id: ResultsViewTab.DOWNLOAD,
                 getTab: () => {
@@ -562,15 +522,13 @@ export default class ResultsViewPage extends React.Component<
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     handleQuickOQLSubmission() {
         this.quickOQLQueryStore!.submit();
         this.showOQLEditor = false;
     }
 
-    @autobind
-    @action
+    @action.bound
     toggleOQLEditor() {
         this.showOQLEditor = !this.showOQLEditor;
     }
@@ -579,10 +537,57 @@ export default class ResultsViewPage extends React.Component<
     private getTabHref(tabId: string) {
         return URL.format({
             pathname: tabId,
-            query: this.props.routing.location.query,
+            query: this.props.routing.query,
             hash: this.props.routing.location.hash,
         });
     }
+
+    readonly userMessages = remoteData({
+        await: () => [
+            this.resultsViewPageStore.expressionProfiles,
+            this.resultsViewPageStore.studies,
+        ],
+        invoke: () => {
+            // TODO: This is only here temporarily to shepherd users from
+            //      now-deleted Expression tab to the Plots tab.
+            //  Remove a few months after 10/2020
+            if (
+                this.resultsViewPageStore.expressionProfiles.result.length >
+                    0 &&
+                this.resultsViewPageStore.studies.result.length > 1
+            ) {
+                return Promise.resolve([
+                    {
+                        dateEnd: 10000000000000000000,
+                        content: (
+                            <span>
+                                Looking for the <strong>Expression</strong> tab?
+                                {` `}
+                                That functionality is now available{` `}
+                                <a
+                                    style={{
+                                        color: 'white',
+                                        textDecoration: 'underline',
+                                    }}
+                                    onClick={() =>
+                                        this.urlWrapper.updateURL(
+                                            {},
+                                            `results/${ResultsViewTab.EXPRESSION_REDIRECT}`
+                                        )
+                                    }
+                                >
+                                    in the <strong>Plots</strong> tab.
+                                </a>
+                            </span>
+                        ),
+                        id: '2020_merge_expression_to_plots',
+                    },
+                ]);
+            } else {
+                return Promise.resolve([]);
+            }
+        },
+    });
 
     @computed get pageContent() {
         if (this.resultsViewPageStore.invalidStudyIds.result.length > 0) {
@@ -627,6 +632,12 @@ export default class ResultsViewPage extends React.Component<
                             />
                         </div>
                     )}
+
+                    {this.userMessages.isComplete &&
+                        this.userMessages.result.length > 0 && (
+                            <UserMessager messages={this.userMessages.result} />
+                        )}
+
                     {this.resultsViewPageStore.studies.isPending && (
                         <LoadingIndicator
                             isLoading={true}
@@ -692,8 +703,10 @@ export default class ResultsViewPage extends React.Component<
                                 {// we don't show the result tabs if we don't have valid query
                                 this.showTabs &&
                                     !this.resultsViewPageStore.genesInvalid &&
-                                    !this.resultsViewPageStore
-                                        .isQueryInvalid && (
+                                    !this.resultsViewPageStore.isQueryInvalid &&
+                                    this.resultsViewPageStore
+                                        .customDriverAnnotationReport
+                                        .isComplete && (
                                         <MSKTabs
                                             key={this.urlWrapper.hash}
                                             activeTabId={
@@ -701,7 +714,9 @@ export default class ResultsViewPage extends React.Component<
                                             }
                                             unmountOnHide={false}
                                             onTabClick={(id: string) =>
-                                                this.handleTabChange(id)
+                                                this.resultsViewPageStore.handleTabChange(
+                                                    id
+                                                )
                                             }
                                             className="mainTabs"
                                             getTabHref={this.getTabHref}
@@ -719,7 +734,7 @@ export default class ResultsViewPage extends React.Component<
 
     public render() {
         if (
-            this.urlWrapper.isPendingSession ||
+            this.urlWrapper.isTemporarySessionPendingSave ||
             this.urlWrapper.isLoadingSession ||
             !this.resultsViewPageStore.studies.isComplete
         ) {
@@ -733,7 +748,10 @@ export default class ResultsViewPage extends React.Component<
             !this.resultsViewPageStore.tabId
         ) {
             setTimeout(() => {
-                this.handleTabChange(this.resultsViewPageStore.tabId, true);
+                this.resultsViewPageStore.handleTabChange(
+                    this.resultsViewPageStore.tabId,
+                    true
+                );
             });
             return null;
         } else {

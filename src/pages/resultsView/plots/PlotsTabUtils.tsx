@@ -49,10 +49,11 @@ import {
     MUT_COLOR_TRUNC,
     MUT_COLOR_TRUNC_PASSENGER,
 } from 'shared/lib/Colors';
-import { CoverageInformation } from '../ResultsViewPageStoreUtils';
+import { CoverageInformation } from '../../../shared/lib/GenePanelUtils';
 import { IBoxScatterPlotData } from '../../../shared/components/plots/BoxScatterPlot';
 import {
     AlterationTypeConstants,
+    CustomDriverNumericGeneMolecularData,
     AnnotatedMutation,
     AnnotatedNumericGeneMolecularData,
 } from '../ResultsViewPageStore';
@@ -78,6 +79,7 @@ import AppConfig from 'appConfig';
 import { SpecialChartsUniqueKeyEnum } from 'pages/studyView/StudyViewUtils';
 import { observable, ObservableMap } from 'mobx';
 import { toFixedWithoutTrailingZeros } from '../../../shared/lib/FormatUtils';
+import jStat from 'jStat';
 
 export const CLIN_ATTR_DATA_TYPE = 'clinical_attribute';
 export const GENESET_DATA_TYPE = 'GENESET_SCORE';
@@ -289,7 +291,8 @@ export function getColoringMenuOptionValue(
     option: Omit<ColoringMenuOmnibarOption, 'value'>
 ) {
     return `${option.info.entrezGeneId}_${JSON.stringify(
-        option.info.clinicalAttribute
+        option.info.clinicalAttribute,
+        ['clinicalAttributeId', 'patientAttribute', 'studyId']
     )}`;
 }
 
@@ -383,7 +386,7 @@ export function scatterPlotLegendData(
     cnaDataExists: MobxPromise<boolean>,
     driversAnnotated: boolean,
     limitValueTypes: string[],
-    highlightedLegendItems?: ObservableMap<LegendDataWithId>,
+    highlightedLegendItems?: ObservableMap<string, LegendDataWithId>,
     highlight?: (d: IPlotSampleData) => boolean,
     coloringClinicalDataCacheEntry?: ClinicalDataCacheEntry,
     coloringClinicalDataLogScale?: boolean,
@@ -2346,7 +2349,7 @@ export function makeBoxScatterPlotData(
     },
     copyNumberAlterations?: {
         molecularProfileIds: string[];
-        data: AnnotatedNumericGeneMolecularData[];
+        data: CustomDriverNumericGeneMolecularData[];
     },
     selectedGeneForStyling?: Gene,
     clinicalData?: {
@@ -2368,10 +2371,16 @@ export function makeBoxScatterPlotData(
     let ret = _.entries(categoryToData).map(entry => ({
         label: entry[0],
         data: entry[1],
+        median: jStat.median(
+            entry[1].map((d: IBoxScatterPlotPoint) => d.value)
+        ),
     }));
     const categoryOrder = horzData.categoryOrder;
     if (categoryOrder) {
         ret = _.sortBy(ret, datum => categoryOrder.indexOf(datum.label));
+    } else {
+        // default sort alphabetically
+        ret = _.sortBy(ret, datum => datum.label);
     }
     return ret;
 }
@@ -2387,7 +2396,7 @@ export function makeScatterPlotData(
     },
     copyNumberAlterations?: {
         molecularProfileIds: string[];
-        data: AnnotatedNumericGeneMolecularData[];
+        data: CustomDriverNumericGeneMolecularData[];
     },
     selectedGeneForStyling?: Gene,
     clinicalData?: {
@@ -2407,7 +2416,7 @@ export function makeScatterPlotData(
     },
     copyNumberAlterations?: {
         molecularProfileIds: string[];
-        data: AnnotatedNumericGeneMolecularData[];
+        data: CustomDriverNumericGeneMolecularData[];
     },
     selectedGeneForStyling?: Gene,
     clinicalData?: {
@@ -2621,7 +2630,7 @@ export function makeWaterfallPlotData(
     },
     copyNumberAlterations?: {
         molecularProfileIds: string[];
-        data: AnnotatedNumericGeneMolecularData[];
+        data: CustomDriverNumericGeneMolecularData[];
     },
     clinicalData?: {
         clinicalAttribute: ClinicalAttribute;
@@ -2633,7 +2642,7 @@ export function makeWaterfallPlotData(
     } = mutations ? _.groupBy(mutations.data, m => m.uniqueSampleKey) : {};
 
     const cnaMap: {
-        [uniqueSampleKey: string]: AnnotatedNumericGeneMolecularData[];
+        [uniqueSampleKey: string]: CustomDriverNumericGeneMolecularData[];
     } = copyNumberAlterations
         ? _.groupBy(copyNumberAlterations.data, d => d.uniqueSampleKey)
         : {};
@@ -2660,9 +2669,11 @@ export function makeWaterfallPlotData(
     for (const d of axisData.data) {
         const sample = uniqueSampleKeyToSample[d.uniqueSampleKey];
         const sampleCopyNumberAlterations:
-            | AnnotatedNumericGeneMolecularData[]
+            | CustomDriverNumericGeneMolecularData[]
             | undefined = cnaMap[d.uniqueSampleKey];
-        let dispCna: AnnotatedNumericGeneMolecularData | undefined = undefined;
+        let dispCna:
+            | CustomDriverNumericGeneMolecularData
+            | undefined = undefined;
         let dispMutationType: OncoprintMutationType | undefined = undefined;
         const sampleMutations: AnnotatedMutation[] | undefined =
             mutationsMap[d.uniqueSampleKey];
@@ -2677,7 +2688,7 @@ export function makeWaterfallPlotData(
             // filter CNA's for the selected gene and return (a random) one with the highest value
             dispCna = _(sampleCopyNumberAlterations)
                 .filter(
-                    (d: AnnotatedNumericGeneMolecularData) =>
+                    (d: CustomDriverNumericGeneMolecularData) =>
                         d.entrezGeneId === selectedGene.entrezGeneId
                 )
                 .maxBy('value');
@@ -3192,8 +3203,6 @@ export function makeClinicalAttributeOptions(
 export function makeAxisLogScaleFunction(
     axisSelection: AxisMenuSelection
 ): IAxisLogScaleParams | undefined {
-    const MIN_LOG_ARGUMENT = 0.01;
-
     if (!axisSelection.logScale) {
         return undefined;
     }
@@ -3208,9 +3217,9 @@ export function makeAxisLogScaleFunction(
     ) {
         // log-transformation parameters for non-genericAssay reponse
         // profile data. Note: log2-transformation is used by default
-        label = 'log2';
-        fLogScale = (x: number) => Math.log2(Math.max(x, MIN_LOG_ARGUMENT));
-        fInvLogScale = (x: number) => Math.pow(2, x);
+        label = 'log2(value + 1)';
+        fLogScale = (x: number) => Math.log2(Math.max(x, 0) + 1);
+        fInvLogScale = (x: number) => Math.pow(2, x) - 1;
     } else {
         // log-transformation parameters for generic assay reponse profile
         // data. Note: log10-transformation is used for generic assays
@@ -3282,4 +3291,36 @@ export function getLimitValues(data: any[]): string[] {
         })
         .uniq()
         .value();
+}
+
+function stringsToOptions(vals: string[]) {
+    return vals.map(v => ({ value: v, label: v }));
+}
+export function getCategoryOptions(data: IAxisData) {
+    if (isStringData(data)) {
+        const categories = data.data.reduce((catMap, d) => {
+            if (_.isArray(d.value)) {
+                for (const v of d.value) {
+                    catMap[v] = true;
+                }
+            } else {
+                catMap[d.value] = true;
+            }
+            return catMap;
+        }, {} as { [category: string]: true });
+        return stringsToOptions(_.sortBy(Object.keys(categories)));
+    } else {
+        return [];
+    }
+}
+
+export function maybeSetLogScale(axisSelection: AxisMenuSelection) {
+    if (axisSelection.dataType === AlterationTypeConstants.MRNA_EXPRESSION) {
+        if (
+            !axisSelection.dataSourceId ||
+            axisSelection.dataSourceId.includes('rna_seq')
+        ) {
+            axisSelection.logScale = true;
+        }
+    }
 }

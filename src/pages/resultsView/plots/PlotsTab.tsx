@@ -1,5 +1,12 @@
 import * as React from 'react';
-import { action, computed, observable, runInAction } from 'mobx';
+import {
+    toJS,
+    action,
+    computed,
+    observable,
+    runInAction,
+    makeObservable,
+} from 'mobx';
 import { Observer, observer } from 'mobx-react';
 import './styles.scss';
 import {
@@ -56,6 +63,9 @@ import {
     getColoringMenuOptionValue,
     basicAppearance,
     getAxisDataOverlapSampleCount,
+    getCategoryOptions,
+    maybeSetLogScale,
+    logScalePossibleForProfile,
 } from './PlotsTabUtils';
 import {
     ClinicalAttribute,
@@ -83,7 +93,6 @@ import BoxScatterPlot, {
 import autobind from 'autobind-decorator';
 import fileDownload from 'react-file-download';
 import OqlStatusBanner from '../../../shared/components/banners/OqlStatusBanner';
-import ScrollBar from '../../../shared/components/Scrollbar/ScrollBar';
 import {
     dataPointIsLimited,
     LegendDataWithId,
@@ -106,7 +115,12 @@ import { SpecialAttribute } from '../../../shared/cache/ClinicalDataCache';
 import LabeledCheckbox from '../../../shared/components/labeledCheckbox/LabeledCheckbox';
 import CaseFilterWarning from '../../../shared/components/banners/CaseFilterWarning';
 import { getSuffixOfMolecularProfile } from 'shared/lib/molecularProfileUtils';
-import { makeGenericAssayOption } from 'shared/lib/GenericAssayUtils/GenericAssayCommonUtils';
+import {
+    makeGenericAssayOption,
+    COMMON_GENERIC_ASSAY_PROPERTY,
+    getGenericAssayMetaPropertyOrDefault,
+} from 'shared/lib/GenericAssayUtils/GenericAssayCommonUtils';
+import { getBoxWidth } from 'shared/lib/boxPlotUtils';
 
 enum EventKey {
     horz_logScale,
@@ -114,6 +128,7 @@ enum EventKey {
     utilities_horizontalBars,
     utilities_showRegressionLine,
     utilities_viewLimitValues,
+    sortByMedian,
 }
 
 export enum ColoringType {
@@ -164,6 +179,7 @@ export type AxisMenuSelection = {
     selectedGenesetOption?: PlotsTabOption;
     selectedGenericAssayOption?: PlotsTabOption;
     isGenericAssayType?: boolean;
+    selectedCategories: any[];
     dataType?: string;
     dataSourceId?: string;
     mutationCountBy: MutationCountBy;
@@ -251,15 +267,21 @@ const discreteVsDiscretePlotTypeOptions = [
 
 @observer
 export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
+    @observable.ref private plotSvg: SVGElement | null = null;
+
     private horzSelection: AxisMenuSelection;
     private vertSelection: AxisMenuSelection;
     private selectionHistory = new LastPlotsTabSelectionForDatatype();
     private coloringMenuSelection: ColoringMenuSelection;
 
     private scrollPane: HTMLDivElement;
+    private dummyScrollPane: HTMLDivElement;
+    private scrollingDummyPane = false;
+    @observable plotElementWidth = 0;
 
-    @observable searchCaseInput: string;
-    @observable searchMutationInput: string;
+    @observable boxPlotSortByMedian = false;
+    @observable.ref searchCaseInput: string;
+    @observable.ref searchMutationInput: string;
     @observable showRegressionLine = false;
     // discrete vs discrete settings
     @observable discreteVsDiscretePlotType: DiscreteVsDiscretePlotType =
@@ -272,13 +294,12 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
 
     @observable searchCase: string = '';
     @observable searchMutation: string = '';
-    @observable plotExists = false;
-    @observable highlightedLegendItems = observable.shallowMap<
+    @observable highlightedLegendItems = observable.map<
+        string,
         LegendDataWithId
-    >();
+    >({}, { deep: false });
 
-    @autobind
-    @action
+    @action.bound
     private onClickLegendItem(ld: LegendDataWithId<any>) {
         if (this.highlightedLegendItems.has(ld.highlighting!.uid)) {
             this.highlightedLegendItems.delete(ld.highlighting!.uid);
@@ -287,8 +308,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     private onClickColorByCopyNumber() {
         if (this.plotType.result === PlotType.WaterfallPlot) {
             // waterfall plot is a radio - cant select both mutation type and copy number
@@ -300,8 +320,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     private onClickColorByMutationType() {
         if (this.plotType.result === PlotType.WaterfallPlot) {
             // waterfall plot is a radio - cant select both mutation type and copy number
@@ -311,11 +330,6 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             this.coloringMenuSelection.colorByMutationType = !this
                 .coloringMenuSelection.colorByMutationType;
         }
-    }
-
-    @autobind
-    private getScrollPane() {
-        return this.scrollPane;
     }
 
     // determine whether formatting for points in the scatter plot (based on
@@ -437,6 +451,8 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                         pill.plotModel.vertical.dataSource
                                     );
                                 }
+                                maybeSetLogScale(this.horzSelection);
+                                maybeSetLogScale(this.vertSelection);
                                 if (pill.plotModel.vertical.useSameGene) {
                                     this.selectSameGeneOptionForVerticalAxis();
                                 }
@@ -649,6 +665,8 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
     constructor(props: IPlotsTabProps) {
         super(props);
 
+        makeObservable(this);
+
         this.horzSelection = this.initAxisMenuSelection(false);
         this.vertSelection = this.initAxisMenuSelection(true);
         this.coloringMenuSelection = this.initColoringMenuSelection();
@@ -661,7 +679,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
 
     @autobind
     private getSvg() {
-        return document.getElementById(SVG_ID) as SVGElement | null;
+        return this.plotSvg;
     }
 
     private downloadFilename = 'plot'; // todo: more specific?
@@ -725,12 +743,13 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 this._selectedGeneOption = o;
             },
             get dataType() {
-                if (!self.dataTypeOptions.isComplete) {
+                const dataTypeOptionsPromise = self.dataTypeOptions;
+                if (!dataTypeOptionsPromise.isComplete) {
                     // if there are no options to select a default from, then return the stored value for this variable
                     return this._dataType;
                 }
                 // otherwise, pick the default based on available options
-                const dataTypeOptions = self.dataTypeOptions.result!;
+                const dataTypeOptions = dataTypeOptionsPromise.result!;
                 if (this._dataType === undefined && dataTypeOptions.length) {
                     // return computed default if _dataType is undefined and if there are options to select a default value from
                     if (
@@ -1153,6 +1172,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 });
             },
             _isGenericAssayType: undefined,
+            selectedCategories: [],
         });
     }
 
@@ -1284,15 +1304,13 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             },
         });
     }
-    @autobind
-    @action
+    @action.bound
     private updateColoringMenuGene(entrezGeneId: number) {
         this.coloringMenuSelection.selectedOption = undefined;
         this.coloringMenuSelection.default.entrezGeneId = entrezGeneId;
     }
 
-    @autobind
-    @action
+    @action.bound
     private onInputClick(event: React.MouseEvent<HTMLInputElement>) {
         const plotType = this.plotType.result!;
         switch (parseInt((event.target as HTMLInputElement).value, 10)) {
@@ -1310,6 +1328,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 break;
             case EventKey.utilities_viewLimitValues:
                 this.viewLimitValues = !this.viewLimitValues;
+                break;
+            case EventKey.sortByMedian:
+                this.boxPlotSortByMedian = !this.boxPlotSortByMedian;
                 break;
         }
     }
@@ -1401,8 +1422,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     private setSearchCaseInput(e: any) {
         this.searchCaseInput = e.target.value;
         clearTimeout(this.searchCaseTimeout);
@@ -1412,8 +1432,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     private setSearchMutationInput(e: any) {
         this.searchMutationInput = e.target.value;
         clearTimeout(this.searchMutationTimeout);
@@ -1423,14 +1442,12 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     public executeSearchCase(caseId: string) {
         this.searchCase = caseId;
     }
 
-    @autobind
-    @action
+    @action.bound
     public executeSearchMutation(proteinChange: string) {
         this.searchMutation = proteinChange;
     }
@@ -1465,8 +1482,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     private onVerticalAxisGeneSelect(option: any) {
         this.vertSelection.selectedGeneOption = option;
         this.viewLimitValues = true;
@@ -1474,8 +1490,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     private onHorizontalAxisGeneSelect(option: any) {
         this.horzSelection.selectedGeneOption = option;
         this.viewLimitValues = true;
@@ -1483,8 +1498,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     private selectSameGeneOptionForVerticalAxis() {
         if (!this.vertGeneOptions.result) {
             return;
@@ -1499,40 +1513,35 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     private onVerticalAxisGenesetSelect(option: any) {
         this.vertSelection.selectedGenesetOption = option;
         this.viewLimitValues = true;
         this.selectionHistory.updateVerticalFromSelection(this.vertSelection);
     }
 
-    @autobind
-    @action
+    @action.bound
     private onHorizontalAxisGenesetSelect(option: any) {
         this.horzSelection.selectedGenesetOption = option;
         this.viewLimitValues = true;
         this.selectionHistory.updateHorizontalFromSelection(this.horzSelection);
     }
 
-    @autobind
-    @action
+    @action.bound
     private onVerticalAxisGenericAssaySelect(option: any) {
         this.vertSelection.selectedGenericAssayOption = option;
         this.viewLimitValues = true;
         this.selectionHistory.updateVerticalFromSelection(this.vertSelection);
     }
 
-    @autobind
-    @action
+    @action.bound
     private onHorizontalAxisGenericAssaySelect(option: any) {
         this.horzSelection.selectedGenericAssayOption = option;
         this.viewLimitValues = true;
         this.selectionHistory.updateHorizontalFromSelection(this.horzSelection);
     }
 
-    @autobind
-    @action
+    @action.bound
     private onColoringMenuOptionSelect(option: any) {
         this.coloringMenuSelection.selectedOption = option;
     }
@@ -2174,8 +2183,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         },
     });
 
-    @autobind
-    @action
+    @action.bound
     private onVerticalAxisDataTypeSelect(option: PlotsTabOption) {
         const oldVerticalGene = this.vertSelection.selectedGeneOption;
         const oldHorizontalGene = this.horzSelection.selectedGeneOption;
@@ -2205,11 +2213,12 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             this.onHorizontalAxisGeneSelect(oldVerticalGene);
         }
 
+        this.vertSelection.selectedCategories = [];
+
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     public onHorizontalAxisDataTypeSelect(option: PlotsTabOption) {
         const oldHorizontalGene = this.horzSelection.selectedGeneOption;
         const oldVerticalGene = this.vertSelection.selectedGeneOption;
@@ -2240,26 +2249,30 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             this.onVerticalAxisGeneSelect(oldHorizontalGene);
         }
 
+        this.horzSelection.selectedCategories = [];
+
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     public onVerticalAxisDataSourceSelect(option: PlotsTabOption) {
         this.vertSelection.selectedDataSourceOption = option;
         this.vertSelection.selectedGenericAssayOption = undefined;
+        this.vertSelection.selectedCategories = [];
         this.viewLimitValues = true;
         this.selectionHistory.updateVerticalFromSelection(this.vertSelection);
+        maybeSetLogScale(this.vertSelection);
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     public onHorizontalAxisDataSourceSelect(option: PlotsTabOption) {
         this.horzSelection.selectedDataSourceOption = option;
         this.horzSelection.selectedGenericAssayOption = undefined;
+        this.horzSelection.selectedCategories = [];
         this.viewLimitValues = true;
         this.selectionHistory.updateHorizontalFromSelection(this.horzSelection);
+        maybeSetLogScale(this.horzSelection);
         this.autoChooseColoringMenuGene();
     }
 
@@ -2269,8 +2282,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             dataType !== AlterationTypeConstants.GENERIC_ASSAY;
     }
 
-    @autobind
-    @action
+    @action.bound
     autoChooseColoringMenuGene() {
         const currentSelectedGeneId = this.coloringMenuSelection.selectedOption
             ? this.coloringMenuSelection.selectedOption.info.entrezGeneId
@@ -2311,43 +2323,39 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     public onVerticalAxisMutationCountBySelect(option: any) {
         this.vertSelection.mutationCountBy = option.value;
         this.viewLimitValues = true;
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     public onHorizontalAxisMutationCountBySelect(option: any) {
         this.horzSelection.mutationCountBy = option.value;
         this.viewLimitValues = true;
         this.autoChooseColoringMenuGene();
     }
 
-    @autobind
-    @action
+    @action.bound
     private onDiscreteVsDiscretePlotTypeSelect(option: any) {
         this.discreteVsDiscretePlotType = option.value;
     }
 
-    @autobind
-    @action
+    @action.bound
     private onSortOrderButtonPressed() {
         this._waterfallPlotSortOrder =
             this.waterfallPlotSortOrder === 'ASC' ? 'DESC' : 'ASC';
     }
 
-    @autobind
-    @action
+    @action.bound
     private swapHorzVertSelections() {
         const keysToSwap: (keyof AxisMenuSelection)[] = [
             'dataType',
             'selectedDataSourceOption',
             'logScale',
             'mutationCountBy',
+            'selectedCategories',
         ];
 
         // only swap genes if vertSelection is not set to "Same gene"
@@ -2417,7 +2425,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    @computed get cnaDataCanBeShown() {
+    @computed get canColorByCnaData() {
         return !!(
             this.cnaDataExists.result &&
             (this.potentialColoringType ===
@@ -2485,7 +2493,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }`;
     }
 
-    @computed get cnaDataShown() {
+    @computed get isColoringByCnaData() {
         return !!(
             this.cnaDataExists.result &&
             (this.coloringType === ColoringType.CopyNumber ||
@@ -2496,7 +2504,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    readonly cnaPromise = remoteData({
+    readonly cnaPromiseForColoring = remoteData({
         await: () =>
             this.props.store.annotatedCnaCache.getAll(
                 getCnaQueries(this.coloringMenuSelection)
@@ -2517,7 +2525,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         },
     });
 
-    @computed get mutationDataCanBeShown() {
+    @computed get canColorByMutationData() {
         return !!(
             this.mutationDataExists.result &&
             this.potentialColoringType !== PotentialColoringType.None &&
@@ -2525,7 +2533,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    @computed get mutationDataShown() {
+    @computed get isColoringByMutationData() {
         return !!(
             this.mutationDataExists.result &&
             (this.coloringType === ColoringType.MutationType ||
@@ -2533,7 +2541,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
-    readonly mutationPromise = remoteData({
+    readonly mutationPromiseForColoring = remoteData({
         await: () =>
             this.props.store.annotatedMutationCache.getAll(
                 getMutationQueries(this.coloringMenuSelection)
@@ -2548,6 +2556,52 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             );
         },
     });
+
+    @computed get mutationDataForColoring() {
+        if (this.mutationDataExists.result) {
+            return {
+                molecularProfileIds: _.values(
+                    this.props.store.studyToMutationMolecularProfile.result!
+                ).map(p => p.molecularProfileId),
+                data: this.mutationPromiseForColoring.result!,
+            };
+        } else {
+            return undefined;
+        }
+    }
+
+    @computed get cnaDataForColoring() {
+        if (this.cnaDataExists.result) {
+            return {
+                molecularProfileIds: _.values(
+                    this.props.store.studyToMolecularProfileDiscreteCna.result!
+                ).map(p => p.molecularProfileId),
+                data: this.cnaPromiseForColoring.result!,
+            };
+        } else {
+            return undefined;
+        }
+    }
+
+    @computed get clinicalDataForColoring() {
+        let clinicalData;
+        if (
+            this.coloringMenuSelection.selectedOption &&
+            this.coloringMenuSelection.selectedOption.info.clinicalAttribute
+        ) {
+            const promise = this.props.store.clinicalDataCache.get(
+                this.coloringMenuSelection.selectedOption.info.clinicalAttribute
+            );
+            clinicalData = promise.result!.data as ClinicalData[];
+        }
+        return (
+            clinicalData && {
+                clinicalAttribute: this.coloringMenuSelection.selectedOption!
+                    .info.clinicalAttribute!,
+                data: clinicalData,
+            }
+        );
+    }
 
     @computed get plotDataExistsForTwoAxes() {
         return (
@@ -2575,6 +2629,15 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         );
     }
 
+    readonly horzAxisCategories = remoteData({
+        await: () => [this.horzAxisDataPromise],
+        invoke: () => {
+            return Promise.resolve(
+                getCategoryOptions(this.horzAxisDataPromise.result!)
+            );
+        },
+    });
+
     @computed get vertAxisDataPromise() {
         return makeAxisDataPromise(
             this.vertSelection,
@@ -2591,6 +2654,15 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             this.props.store.genericAssayMolecularDataCache
         );
     }
+
+    readonly vertAxisCategories = remoteData({
+        await: () => [this.vertAxisDataPromise],
+        invoke: () => {
+            return Promise.resolve(
+                getCategoryOptions(this.vertAxisDataPromise.result!)
+            );
+        },
+    });
 
     @computed get vertAxisDataHasNegativeNumbers(): boolean {
         if (
@@ -2917,9 +2989,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         };
         const highlightFunctions = [
             searchHighlight,
-            ...this.highlightedLegendItems
-                .values()
-                .map(x => x.highlighting!.isDatumHighlighted),
+            ...Array.from(this.highlightedLegendItems.values()).map(
+                x => x.highlighting!.isDatumHighlighted
+            ),
         ];
         return (d: IPlotSampleData) => {
             return _.some(highlightFunctions, f => f(d));
@@ -2960,9 +3032,23 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
     }
 
     isDisabledAxisLogCheckbox(vertical: boolean): boolean {
-        return vertical
+        const axisSelection = vertical
+            ? this.vertSelection
+            : this.horzSelection;
+
+        // dont disable the log box for rna_seq even if there are
+        //  negative values
+        const isValidMrnaProfile =
+            axisSelection.dataType ===
+                AlterationTypeConstants.MRNA_EXPRESSION &&
+            axisSelection.dataSourceId &&
+            logScalePossibleForProfile(axisSelection.dataSourceId);
+
+        const hasNegativeNumbers = vertical
             ? this.vertAxisDataHasNegativeNumbers
             : this.horzAxisDataHasNegativeNumbers;
+
+        return !isValidMrnaProfile && hasNegativeNumbers;
     }
 
     private getAxisMenu(
@@ -3000,6 +3086,17 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         let onDataSourceChange = vertical
             ? this.onVerticalAxisDataSourceSelect
             : this.onHorizontalAxisDataSourceSelect;
+
+        const isBoxPlotWithMoreThanOneCategory =
+            this.plotType.isComplete && // boxplot
+            this.plotType.result === PlotType.BoxPlot &&
+            this.defaultSortedBoxPlotData.isComplete && // [note: use defaultSorted so that the checkbox doesnt flicker while resorting boxPlotData]
+            this.defaultSortedBoxPlotData.result.data.length > 1; // with more than one category
+        const axisDataPromise = vertical
+            ? this.vertAxisDataPromise
+            : this.horzAxisDataPromise;
+        const axisIsStringData =
+            axisDataPromise.isComplete && isStringData(axisDataPromise.result!);
 
         switch (axisSelection.dataType) {
             case CLIN_ATTR_DATA_TYPE:
@@ -3070,14 +3167,16 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             const entity = this.genericEntitiesGroupByEntityId.result![
                 selectedGenericAssayEntityId
             ];
-            genericAssayDescription =
-                'DESCRIPTION' in entity.genericEntityMetaProperties
-                    ? entity.genericEntityMetaProperties['DESCRIPTION']
-                    : '';
-            genericAssayUrl =
-                'URL' in entity.genericEntityMetaProperties
-                    ? entity.genericEntityMetaProperties['URL']
-                    : '';
+            genericAssayDescription = getGenericAssayMetaPropertyOrDefault(
+                entity,
+                COMMON_GENERIC_ASSAY_PROPERTY.DESCRIPTION,
+                ''
+            );
+            genericAssayUrl = getGenericAssayMetaPropertyOrDefault(
+                entity,
+                COMMON_GENERIC_ASSAY_PROPERTY.URL,
+                ''
+            );
         }
 
         // generic assay options
@@ -3108,6 +3207,10 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                     selectedEntities
                 ) || [];
         }
+
+        const axisCategoriesPromise = vertical
+            ? this.vertAxisCategories
+            : this.horzAxisCategories;
 
         return (
             <form className="main-form">
@@ -3451,6 +3554,48 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                 </div>
                             </div>
                         )}
+                    {axisCategoriesPromise.isComplete &&
+                        axisCategoriesPromise.result.length > 0 &&
+                        this.plotType.isComplete &&
+                        this.plotType.result === PlotType.BoxPlot && (
+                            <div
+                                style={{ marginBottom: '5px' }}
+                                className="form-group"
+                            >
+                                <label className="label-text">
+                                    Filter categories
+                                </label>
+                                <Select
+                                    className="Select"
+                                    isClearable={true}
+                                    isSearchable={true}
+                                    value={toJS(
+                                        axisSelection.selectedCategories
+                                    )}
+                                    isMulti
+                                    options={axisCategoriesPromise.result}
+                                    onChange={(options: any[] | null) => {
+                                        axisSelection.selectedCategories =
+                                            options || [];
+                                    }}
+                                />
+                            </div>
+                        )}
+                    {isBoxPlotWithMoreThanOneCategory && axisIsStringData && (
+                        <div className="checkbox">
+                            <label>
+                                <input
+                                    data-test="SortByMedian"
+                                    type="checkbox"
+                                    name="utilities_sortByMedian"
+                                    value={EventKey.sortByMedian}
+                                    checked={this.boxPlotSortByMedian}
+                                    onClick={this.onInputClick}
+                                />{' '}
+                                Sort Categories by Median
+                            </label>
+                        </div>
+                    )}
                 </div>
             </form>
         );
@@ -3523,7 +3668,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             this.discreteVsDiscretePlotType !==
                 DiscreteVsDiscretePlotType.Table;
         const showSampleColoringOptions =
-            this.mutationDataCanBeShown || this.cnaDataCanBeShown;
+            this.canColorByMutationData || this.canColorByCnaData;
         const showRegression =
             this.plotType.isComplete &&
             this.plotType.result === PlotType.ScatterPlot;
@@ -3550,7 +3695,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                     placeholder="Case ID.."
                                 />
                             </div>
-                            {this.mutationDataCanBeShown && (
+                            {this.canColorByMutationData && (
                                 <div className="form-group">
                                     <label>Search Mutation(s)</label>
                                     <FormControl
@@ -3625,6 +3770,49 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
     @autobind
     private assignScrollPaneRef(el: HTMLDivElement) {
         this.scrollPane = el;
+        if (el) {
+            this.synchronizeScrollPanes();
+            $(el).scroll(this.synchronizeScrollPanes);
+        }
+    }
+    @autobind
+    private assignDummyScrollPaneRef(el: HTMLDivElement) {
+        this.dummyScrollPane = el;
+        if (el) {
+            this.synchronizeScrollPanes();
+
+            $(el).scroll(this.synchronizeScrollPanes);
+
+            $(el).on('mousedown', () => {
+                this.scrollingDummyPane = true;
+            });
+            $(el).on('mouseup', () => {
+                this.scrollingDummyPane = false;
+            });
+        }
+    }
+    @action.bound
+    private assignPlotSvgRef(el: SVGElement | null) {
+        this.plotSvg = el;
+        if (el) {
+            this.plotElementWidth = el.scrollWidth;
+        } else {
+            this.plotElementWidth = 0;
+        }
+    }
+    @autobind
+    private synchronizeScrollPanes() {
+        if (!this.scrollPane || !this.dummyScrollPane) {
+            // Can't do anything if both panes don't exist yet
+            return;
+        }
+        if (this.scrollingDummyPane) {
+            // prevent infinite loop by only updating in one direction
+            //  based on whether user is clicking in the dummy pane
+            this.scrollPane.scrollLeft = this.dummyScrollPane.scrollLeft;
+        } else {
+            this.dummyScrollPane.scrollLeft = this.scrollPane.scrollLeft;
+        }
     }
 
     @autobind
@@ -3749,9 +3937,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 this.vertAxisDataPromise,
                 this.props.store.sampleKeyToSample,
                 this.props.store.coverageInformation,
-                this.mutationPromise,
+                this.mutationPromiseForColoring,
                 this.props.store.studyToMutationMolecularProfile,
-                this.cnaPromise,
+                this.cnaPromiseForColoring,
                 this.props.store.studyToMolecularProfileDiscreteCna,
             ];
             if (
@@ -3792,32 +3980,10 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             this.props.store.sampleKeyToSample.result!,
                             this.props.store.coverageInformation.result!
                                 .samples,
-                            this.mutationDataExists.result
-                                ? {
-                                      molecularProfileIds: _.values(
-                                          this.props.store
-                                              .studyToMutationMolecularProfile
-                                              .result!
-                                      ).map(p => p.molecularProfileId),
-                                      data: this.mutationPromise.result!,
-                                  }
-                                : undefined,
-                            this.cnaDataExists.result
-                                ? {
-                                      molecularProfileIds: _.values(
-                                          this.props.store
-                                              .studyToMolecularProfileDiscreteCna
-                                              .result!
-                                      ).map(p => p.molecularProfileId),
-                                      data: this.cnaPromise.result!,
-                                  }
-                                : undefined,
+                            this.mutationDataForColoring,
+                            this.cnaDataForColoring,
                             this.selectedGeneForStyling,
-                            clinicalData && {
-                                clinicalAttribute: this.coloringMenuSelection
-                                    .selectedOption!.info.clinicalAttribute!,
-                                data: clinicalData,
-                            }
+                            this.clinicalDataForColoring
                         )
                     );
                 } else {
@@ -3834,9 +4000,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 this.vertAxisDataPromise,
                 this.props.store.sampleKeyToSample,
                 this.props.store.coverageInformation,
-                this.mutationPromise,
+                this.mutationPromiseForColoring,
                 this.props.store.studyToMutationMolecularProfile,
-                this.cnaPromise,
+                this.cnaPromiseForColoring,
                 this.props.store.studyToMolecularProfileDiscreteCna,
             ];
             if (
@@ -3896,31 +4062,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             this.props.store.coverageInformation.result!
                                 .samples,
                             selectedGene,
-                            this.mutationDataExists.result
-                                ? {
-                                      molecularProfileIds: _.values(
-                                          this.props.store
-                                              .studyToMutationMolecularProfile
-                                              .result!
-                                      ).map(p => p.molecularProfileId),
-                                      data: this.mutationPromise.result!,
-                                  }
-                                : undefined,
-                            this.cnaDataShown
-                                ? {
-                                      molecularProfileIds: _.values(
-                                          this.props.store
-                                              .studyToMolecularProfileDiscreteCna
-                                              .result!
-                                      ).map(p => p.molecularProfileId),
-                                      data: this.cnaPromise.result!,
-                                  }
-                                : undefined,
-                            clinicalData && {
-                                clinicalAttribute: this.coloringMenuSelection
-                                    .selectedOption!.info.clinicalAttribute!,
-                                data: clinicalData,
-                            }
+                            this.mutationDataForColoring,
+                            this.cnaDataForColoring,
+                            this.clinicalDataForColoring
                         ),
                     });
                 } else {
@@ -3984,7 +4128,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         return `${baseClass} ${axisClass}-${sortClass}`;
     }
 
-    readonly boxPlotData = remoteData<{
+    readonly defaultSortedBoxPlotData = remoteData<{
         horizontal: boolean;
         data: IBoxScatterPlotData<IBoxScatterPlotPoint>[];
     }>({
@@ -3994,9 +4138,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 this.vertAxisDataPromise,
                 this.props.store.sampleKeyToSample,
                 this.props.store.coverageInformation,
-                this.mutationPromise,
+                this.mutationPromiseForColoring,
                 this.props.store.studyToMutationMolecularProfile,
-                this.cnaPromise,
+                this.cnaPromiseForColoring,
                 this.props.store.studyToMolecularProfileDiscreteCna,
             ];
             if (
@@ -4013,17 +4157,6 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
             return ret;
         },
         invoke: () => {
-            let clinicalData;
-            if (
-                this.coloringMenuSelection.selectedOption &&
-                this.coloringMenuSelection.selectedOption.info.clinicalAttribute
-            ) {
-                const promise = this.props.store.clinicalDataCache.get(
-                    this.coloringMenuSelection.selectedOption.info
-                        .clinicalAttribute
-                );
-                clinicalData = promise.result!.data as ClinicalData[];
-            }
             const horzAxisData = this.horzAxisDataPromise.result;
             const vertAxisData = this.vertAxisDataPromise.result;
             if (!horzAxisData || !vertAxisData) {
@@ -4032,7 +4165,12 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                 let categoryData: IStringAxisData;
                 let numberData: INumberAxisData;
                 let horizontal: boolean;
+                let selectedCategories: { [category: string]: any } = {};
                 if (isNumberData(horzAxisData) && isStringData(vertAxisData)) {
+                    selectedCategories = _.keyBy(
+                        this.vertSelection.selectedCategories,
+                        c => c.value
+                    );
                     categoryData = vertAxisData;
                     numberData = horzAxisData;
                     horizontal = true;
@@ -4040,47 +4178,55 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                     isStringData(horzAxisData) &&
                     isNumberData(vertAxisData)
                 ) {
+                    selectedCategories = _.keyBy(
+                        this.horzSelection.selectedCategories,
+                        c => c.value
+                    );
                     categoryData = horzAxisData;
                     numberData = vertAxisData;
                     horizontal = false;
                 } else {
                     return Promise.resolve({ horizontal: false, data: [] });
                 }
+
+                let data = makeBoxScatterPlotData(
+                    categoryData,
+                    numberData,
+                    this.props.store.sampleKeyToSample.result!,
+                    this.props.store.coverageInformation.result!.samples,
+                    this.mutationDataForColoring,
+                    this.cnaDataForColoring,
+                    this.selectedGeneForStyling,
+                    this.clinicalDataForColoring
+                );
+                if (selectedCategories && !_.isEmpty(selectedCategories)) {
+                    data = data.filter(d => d.label in selectedCategories);
+                }
                 return Promise.resolve({
                     horizontal,
-                    data: makeBoxScatterPlotData(
-                        categoryData,
-                        numberData,
-                        this.props.store.sampleKeyToSample.result!,
-                        this.props.store.coverageInformation.result!.samples,
-                        this.mutationDataExists.result
-                            ? {
-                                  molecularProfileIds: _.values(
-                                      this.props.store
-                                          .studyToMutationMolecularProfile
-                                          .result!
-                                  ).map(p => p.molecularProfileId),
-                                  data: this.mutationPromise.result!,
-                              }
-                            : undefined,
-                        this.cnaDataExists.result
-                            ? {
-                                  molecularProfileIds: _.values(
-                                      this.props.store
-                                          .studyToMolecularProfileDiscreteCna
-                                          .result!
-                                  ).map(p => p.molecularProfileId),
-                                  data: this.cnaPromise.result!,
-                              }
-                            : undefined,
-                        this.selectedGeneForStyling,
-                        clinicalData && {
-                            clinicalAttribute: this.coloringMenuSelection
-                                .selectedOption!.info.clinicalAttribute!,
-                            data: clinicalData,
-                        }
+                    data,
+                });
+            }
+        },
+    });
+
+    readonly boxPlotData = remoteData<{
+        horizontal: boolean;
+        data: IBoxScatterPlotData<IBoxScatterPlotPoint>[];
+    }>({
+        await: () => [this.defaultSortedBoxPlotData],
+        invoke: () => {
+            if (this.boxPlotSortByMedian) {
+                return Promise.resolve({
+                    horizontal: this.defaultSortedBoxPlotData.result!
+                        .horizontal,
+                    data: _.sortBy(
+                        this.defaultSortedBoxPlotData.result!.data,
+                        d => d.median
                     ),
                 });
+            } else {
+                return Promise.resolve(this.defaultSortedBoxPlotData.result!);
             }
         },
     });
@@ -4093,16 +4239,14 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
     }
 
     @computed get boxPlotBoxWidth() {
-        const SMALL_BOX_WIDTH = 30;
-        const LARGE_BOX_WIDTH = 60;
-
         if (this.boxPlotData.isComplete) {
-            return this.boxPlotData.result.data.length > 7
-                ? SMALL_BOX_WIDTH
-                : LARGE_BOX_WIDTH;
+            return getBoxWidth(
+                this.boxPlotData.result.data.length,
+                this.boxPlotData.result.horizontal ? 400 : 600 // squish boxes more into vertical area
+            );
         } else {
             // irrelevant - nothing should be plotted anyway
-            return SMALL_BOX_WIDTH;
+            return 10;
         }
     }
 
@@ -4130,7 +4274,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
     @computed get showUtilitiesMenu() {
         return (
             (this.plotDataExistsForTwoAxes || this.waterfallPlotIsShown) &&
-            (this.mutationDataCanBeShown || this.cnaDataCanBeShown)
+            (this.canColorByMutationData || this.canColorByCnaData)
         );
     }
 
@@ -4239,7 +4383,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                         ) {
                             plotElt = (
                                 <TablePlot
-                                    svgId={SVG_ID}
+                                    svgRef={this.assignPlotSvgRef}
                                     horzData={
                                         (this.horzAxisDataPromise
                                             .result! as IStringAxisData).data
@@ -4270,6 +4414,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             plotElt = (
                                 <MultipleCategoryBarPlot
                                     svgId={SVG_ID}
+                                    svgRef={this.assignPlotSvgRef}
                                     horzData={
                                         (this.horzAxisDataPromise
                                             .result! as IStringAxisData).data
@@ -4311,6 +4456,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             plotElt = (
                                 <PlotsTabScatterPlot
                                     svgId={SVG_ID}
+                                    svgRef={this.assignPlotSvgRef}
                                     axisLabelX={this.horzLabel.result!}
                                     axisLabelY={this.vertLabel.result!}
                                     data={this.scatterPlotData.result}
@@ -4375,6 +4521,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             plotElt = (
                                 <PlotsTabWaterfallPlot
                                     svgId={SVG_ID}
+                                    svgRef={this.assignPlotSvgRef}
                                     axisLabel={this.waterfallLabel.result!}
                                     data={this.waterfallPlotData.result.data}
                                     size={scatterPlotSize}
@@ -4447,7 +4594,8 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             plotElt = (
                                 <PlotsTabBoxPlot
                                     svgId={SVG_ID}
-                                    domainPadding={75}
+                                    svgRef={this.assignPlotSvgRef}
+                                    domainPadding={50}
                                     boxWidth={this.boxPlotBoxWidth}
                                     axisLabelX={this.horzLabel.result!}
                                     axisLabelY={this.vertLabel.result!}
@@ -4526,23 +4674,19 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                             data-test="PlotsTabPlotDiv"
                             className="borderedChart posRelative"
                         >
-                            <ScrollBar
-                                style={{ position: 'relative', top: -5 }}
-                                getScrollEl={this.getScrollPane}
-                            />
                             {this.showUtilitiesMenu && (
                                 <div
                                     style={{
                                         textAlign: 'left',
                                         position: 'relative',
-                                        zIndex: 1,
+                                        zIndex: 2,
                                         marginTop: '-6px',
                                         marginBottom: this.isWaterfallPlot
                                             ? '9px'
                                             : '-16px',
                                         minWidth:
-                                            this.mutationDataCanBeShown &&
-                                            this.cnaDataCanBeShown
+                                            this.canColorByMutationData &&
+                                            this.canColorByCnaData
                                                 ? 600
                                                 : 0,
                                     }}
@@ -4620,7 +4764,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                             </LabeledCheckbox>
                                         )}
                                         {this.coloringByGene &&
-                                            this.mutationDataCanBeShown && (
+                                            this.canColorByMutationData && (
                                                 <LabeledCheckbox
                                                     checked={
                                                         this
@@ -4645,7 +4789,7 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                                 </LabeledCheckbox>
                                             )}
                                         {this.coloringByGene &&
-                                            this.cnaDataCanBeShown && (
+                                            this.canColorByCnaData && (
                                                 <LabeledCheckbox
                                                     checked={
                                                         this
@@ -4671,8 +4815,8 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                             )}
                                         {this.coloringByGene &&
                                         this.waterfallPlotIsShown && // Show a "None" radio button only on waterfall plots
-                                            (this.mutationDataCanBeShown ||
-                                                this.cnaDataCanBeShown) && (
+                                            (this.canColorByMutationData ||
+                                                this.canColorByCnaData) && (
                                                 <LabeledCheckbox
                                                     checked={
                                                         !this
@@ -4697,47 +4841,91 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                     </div>
                                 </div>
                             )}
-                            {this.plotExists && (
-                                <DownloadControls
-                                    getSvg={this.getSvg}
-                                    filename={this.downloadFilename}
-                                    additionalRightButtons={[
-                                        {
-                                            key: 'Data',
-                                            content: (
-                                                <span>
-                                                    Data{' '}
-                                                    <i
-                                                        className="fa fa-cloud-download"
-                                                        aria-hidden="true"
-                                                    />
-                                                </span>
-                                            ),
-                                            onClick: this.downloadData,
-                                            disabled: !this.props.store
-                                                .entrezGeneIdToGene.isComplete,
-                                        },
-                                    ]}
-                                    dontFade={true}
-                                    style={{
-                                        position: 'absolute',
-                                        right: 10,
-                                        top: 10,
-                                    }}
-                                    type="button"
-                                />
-                            )}
-                            <div
-                                ref={this.assignScrollPaneRef}
-                                style={{
-                                    position: 'relative',
-                                    display: 'inline-block',
+                            <Observer>
+                                {() => {
+                                    if (this.plotExists) {
+                                        return (
+                                            <DownloadControls
+                                                getSvg={this.getSvg}
+                                                filename={this.downloadFilename}
+                                                additionalRightButtons={[
+                                                    {
+                                                        key: 'Data',
+                                                        content: (
+                                                            <span>
+                                                                Data{' '}
+                                                                <i
+                                                                    className="fa fa-cloud-download"
+                                                                    aria-hidden="true"
+                                                                />
+                                                            </span>
+                                                        ),
+                                                        onClick: this
+                                                            .downloadData,
+                                                        disabled: !this.props
+                                                            .store
+                                                            .entrezGeneIdToGene
+                                                            .isComplete,
+                                                    },
+                                                ]}
+                                                dontFade={true}
+                                                style={{
+                                                    position: 'absolute',
+                                                    right: 10,
+                                                    top: 10,
+                                                }}
+                                                type="button"
+                                            />
+                                        );
+                                    } else {
+                                        return <span />;
+                                    }
                                 }}
-                            >
-                                {plotElt}
-                            </div>
+                            </Observer>
+                            <Observer>
+                                {() => (
+                                    <div
+                                        className="dummyScrollDiv scrollbarAlwaysVisible"
+                                        style={{
+                                            position: 'relative',
+                                            width: '100%',
+                                            maxWidth: this.plotElementWidth,
+                                            overflow: 'scroll',
+                                            marginTop: 35,
+                                            marginBottom: -25, // reduce excessive padding caused by the marginTop
+                                            zIndex: 1, // make sure it receives mouse even though marginBottom pulls the plot on top of it
+                                        }}
+                                        ref={this.assignDummyScrollPaneRef}
+                                    >
+                                        <div
+                                            style={{
+                                                minWidth:
+                                                    this.plotElementWidth - 8, // subtract 8 due to the pseudo-scrollbar element adding bulk
+                                                height: 1,
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </Observer>
+                            <Observer>
+                                {() => (
+                                    <div
+                                        style={{
+                                            position: 'relative',
+                                            display: 'inline-block',
+                                            width: '100%',
+                                            overflow: 'scroll',
+                                            marginTop: -13,
+                                        }}
+                                        className="hideScrollbar"
+                                        ref={this.assignScrollPaneRef}
+                                    >
+                                        {plotElt}
+                                    </div>
+                                )}
+                            </Observer>
                         </div>
-                        {this.mutationDataCanBeShown && (
+                        {this.canColorByMutationData && (
                             <div style={{ marginTop: 5 }}>
                                 * Driver annotation settings are located in the
                                 settings menu{' '}
@@ -4750,8 +4938,9 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                 <div style={{ marginTop: 5 }}>
                                     <div>
                                         ** Labeling of threshold values (e.g.
-                                        >8.00) excludes threshold values from
-                                        correlation coefficient calculation.
+                                        {'>'}8.00) excludes threshold values
+                                        from correlation coefficient
+                                        calculation.
                                     </div>
                                 </div>
                             )}
@@ -4760,8 +4949,8 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
                                 <div style={{ marginTop: 5 }}>
                                     <div>
                                         ** Labeling of threshold values (e.g.
-                                        >8.00) excludes threshold values from
-                                        box plot calculation.
+                                        {'>'}8.00) excludes threshold values
+                                        from box plot calculation.
                                     </div>
                                 </div>
                             )}
@@ -4778,8 +4967,8 @@ export default class PlotsTab extends React.Component<IPlotsTabProps, {}> {
         }
     }
 
-    componentDidUpdate() {
-        this.plotExists = !!this.getSvg();
+    @computed get plotExists() {
+        return !!this.getSvg();
     }
 
     public render() {

@@ -7,7 +7,7 @@ import {
     VictoryLabel,
     VictoryScatter,
 } from 'victory';
-import { observable, action, computed } from 'mobx';
+import { observable, action, computed, makeObservable } from 'mobx';
 import { Popover } from 'react-bootstrap';
 import { formatLogOddsRatio } from 'shared/lib/FormatUtils';
 import { toConditionalPrecision } from 'shared/lib/NumberUtils';
@@ -28,10 +28,13 @@ export interface IMiniScatterChartProps {
     xAxisRightLabel: string;
     xAxisDomain: number;
     xAxisTickValues: number[] | null;
-    onGeneNameClick: (hugoGeneSymbol: string, entrezGeneId: number) => void;
-    onSelection: (hugoGeneSymbols: string[]) => void;
+    // can be hugoGeneSymbols (Gene) or stableIds (Generic Assay)
+    onSelection: (selectedIds: string[]) => void;
     onSelectionCleared: () => void;
-    selectedGenesSet: { [hugoGeneSymbol: string]: any };
+    selectedSet: { [selectedIds: string]: any };
+    // give either onGeneNameClick or onGenericAssayEntityClick
+    onGeneNameClick?: (hugoGeneSymbol: string, entrezGeneId: number) => void;
+    onGenericAssayEntityClick?: (stableId: string) => void;
 }
 
 @observer
@@ -39,12 +42,16 @@ export default class MiniScatterChart extends React.Component<
     IMiniScatterChartProps,
     {}
 > {
-    @observable tooltipModel: any;
-    @observable private svgContainer: any;
+    @observable tooltipModel: any = null;
+    @observable private svgContainer: any = null;
     private dragging = false;
 
-    @autobind
-    @action
+    constructor(props: IMiniScatterChartProps) {
+        super(props);
+        makeObservable(this);
+    }
+
+    @action.bound
     private svgRef(svgContainer: SVGElement | null) {
         this.svgContainer =
             svgContainer && svgContainer.children
@@ -52,33 +59,45 @@ export default class MiniScatterChart extends React.Component<
                 : null;
     }
 
+    @computed get isGenericAssay() {
+        return !!this.props.onGenericAssayEntityClick;
+    }
+
     private handleSelection(points: any, bounds: any, props: any) {
-        this.props.onSelection(
-            points[0].data.map((d: any) => d.hugoGeneSymbol)
-        );
+        if (this.isGenericAssay) {
+            this.props.onSelection(points[0].data.map((d: any) => d.stableId));
+        } else {
+            this.props.onSelection(
+                points[0].data.map((d: any) => d.hugoGeneSymbol)
+            );
+        }
     }
 
     @autobind private handleSelectionCleared() {
         if (this.tooltipModel) {
-            this.props.onGeneNameClick(
-                this.tooltipModel.hugoGeneSymbol,
-                this.tooltipModel.entrezGeneId
-            );
+            if (this.isGenericAssay) {
+                this.props.onGenericAssayEntityClick!(
+                    this.tooltipModel.stableId
+                );
+            } else {
+                if (this.props.onGeneNameClick) {
+                    this.props.onGeneNameClick(
+                        this.tooltipModel.hugoGeneSymbol,
+                        this.tooltipModel.entrezGeneId
+                    );
+                }
+            }
         }
         this.props.onSelectionCleared();
     }
 
-    @autobind @action private onGenePointMouseOver(
-        datum: any,
-        x: number,
-        y: number
-    ) {
+    @action.bound private onPointMouseOver(datum: any, x: number, y: number) {
         this.tooltipModel = datum;
         this.tooltipModel.x = x;
         this.tooltipModel.y = y;
     }
 
-    @autobind @action private onGenePointMouseOut() {
+    @action.bound private onPointMouseOut() {
         this.tooltipModel = null;
     }
 
@@ -90,7 +109,10 @@ export default class MiniScatterChart extends React.Component<
                     positionLeft={this.tooltipModel.x + 15}
                     positionTop={this.tooltipModel.y - 33}
                 >
-                    Gene: {this.tooltipModel.hugoGeneSymbol}
+                    {this.isGenericAssay
+                        ? `Entity: ${this.tooltipModel.entityName ||
+                              this.tooltipModel.stableId}`
+                        : `Gene: ${this.tooltipModel.hugoGeneSymbol}`}
                     <br />
                     Log Ratio: {formatLogOddsRatio(this.tooltipModel.logRatio)}
                     <br />
@@ -248,12 +270,20 @@ export default class MiniScatterChart extends React.Component<
                             data={this.props.data}
                             dataComponent={
                                 <HoverablePoint
-                                    onMouseOver={this.onGenePointMouseOver}
-                                    onMouseOut={this.onGenePointMouseOut}
+                                    onMouseOver={this.onPointMouseOver}
+                                    onMouseOut={this.onPointMouseOut}
                                     fill={(datum: any) => {
                                         if (
+                                            this.isGenericAssay &&
+                                            datum.stableId in
+                                                this.props.selectedSet
+                                        ) {
+                                            return '#FE9929';
+                                        }
+                                        if (
+                                            !this.isGenericAssay &&
                                             datum.hugoGeneSymbol in
-                                            this.props.selectedGenesSet
+                                                this.props.selectedSet
                                         ) {
                                             return '#FE9929';
                                         } else if (datum.qValue < 0.05) {

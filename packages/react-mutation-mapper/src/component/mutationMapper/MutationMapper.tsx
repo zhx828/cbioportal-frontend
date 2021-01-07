@@ -1,10 +1,10 @@
-import { action, computed, observable } from 'mobx';
+import { action, computed, makeObservable, observable } from 'mobx';
 import { observer } from 'mobx-react';
 import * as React from 'react';
 import { ReactNode } from 'react';
 import { TableProps } from 'react-table';
 
-import { MobxCache, Mutation } from 'cbioportal-utils';
+import { MobxCache, Mutation, RemoteData } from 'cbioportal-utils';
 
 import { DefaultPubMedCache } from '../../cache/DefaultPubMedCache';
 import { MutationAlignerCache } from '../../cache/MutationAlignerCache';
@@ -18,7 +18,7 @@ import { DefaultLollipopPlotControlsConfig } from '../../store/DefaultLollipopPl
 import DefaultMutationMapperStore from '../../store/DefaultMutationMapperStore';
 import { initDefaultTrackVisibility } from '../../util/TrackUtils';
 import { getDefaultWindowInstance } from '../../util/DefaultWindowInstance';
-import { ColumnSortDirection, DataTableColumn } from '../dataTable/DataTable';
+import { ColumnSort, DataTableColumn } from '../dataTable/DataTable';
 import DefaultMutationRateSummary, {
     MutationRate,
 } from './DefaultMutationRateSummary';
@@ -65,8 +65,8 @@ export type MutationMapperProps = {
     plotVizHeight?: number;
     customControls?: JSX.Element;
     mutationTable?: JSX.Element;
-    mutationTableInitialSortColumn?: string;
-    mutationTableInitialSortDirection?: ColumnSortDirection;
+    mutationTableInitialSort?: ColumnSort[];
+    mutationTableInitialSortRemoteData?: (RemoteData<any> | undefined)[];
     mutationRates?: MutationRate[];
     pubMedCache?: MobxCache;
     mutationAlignerCache?: MobxCache;
@@ -133,7 +133,6 @@ export function initDefaultMutationMapperStore(props: MutationMapperProps) {
     );
 }
 
-@observer
 export default class MutationMapper<
     P extends MutationMapperProps = MutationMapperProps
 > extends React.Component<P, {}> {
@@ -146,6 +145,11 @@ export default class MutationMapper<
         filterMutationsBySelectedTranscript: false,
         cachePostMethodsOnClients: true,
     };
+
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
 
     @observable
     private _trackVisibility: TrackVisibility | undefined;
@@ -175,9 +179,13 @@ export default class MutationMapper<
         }
     }
 
-    protected get trackDataStatus(): TrackDataStatus {
+    protected getTrackDataStatus(): TrackDataStatus {
         // TODO dummy method for now: move the implementation from cbioportal-frontend
         return {};
+    }
+
+    @computed get trackDataStatus() {
+        return this.getTrackDataStatus();
     }
 
     @computed
@@ -242,11 +250,14 @@ export default class MutationMapper<
             : new MutationAlignerCache(this.props.mutationAlignerUrlTemplate);
     }
 
-    @computed
-    protected get windowWrapper(): { size: { width: number; height: number } } {
+    protected getWindowWrapper() {
         return this.props.windowWrapper
             ? this.props.windowWrapper!
             : getDefaultWindowInstance();
+    }
+    @computed
+    protected get windowWrapper(): { size: { width: number; height: number } } {
+        return this.getWindowWrapper();
     }
 
     protected get mutationTableInfo(): JSX.Element | undefined {
@@ -281,11 +292,9 @@ export default class MutationMapper<
                 <DefaultMutationTable
                     dataStore={this.store.dataStore}
                     columns={columns}
-                    initialSortColumn={
-                        this.props.mutationTableInitialSortColumn
-                    }
-                    initialSortDirection={
-                        this.props.mutationTableInitialSortDirection
+                    initialSort={this.props.mutationTableInitialSort}
+                    initialSortRemoteData={
+                        this.props.mutationTableInitialSortRemoteData
                     }
                     reactTableProps={this.props.customMutationTableProps}
                     hotspotData={this.store.indexedHotspotData}
@@ -304,6 +313,7 @@ export default class MutationMapper<
                     indexedVariantAnnotations={
                         this.store.indexedVariantAnnotations
                     }
+                    selectedTranscriptId={this.store.selectedTranscript}
                     pubMedCache={this.pubMedCache}
                     info={this.mutationTableInfo}
                 />
@@ -394,10 +404,14 @@ export default class MutationMapper<
         return this.props.mutationRates;
     }
 
-    protected get mutationRateSummary(): JSX.Element | null {
+    protected getMutationRateSummary() {
         return this.mutationRates ? (
             <DefaultMutationRateSummary rates={this.mutationRates!} />
         ) : null;
+    }
+
+    @computed protected get mutationRateSummary(): JSX.Element | null {
+        return this.getMutationRateSummary();
     }
 
     protected get isFiltered(): boolean {

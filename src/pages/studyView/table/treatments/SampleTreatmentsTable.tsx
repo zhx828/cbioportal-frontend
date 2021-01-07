@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { observer } from 'mobx-react';
 import * as _ from 'lodash';
-import FixedHeaderTable from '../FixedHeaderTable';
-import { action, computed, observable } from 'mobx';
+import FixedHeaderTable, { IFixedHeaderTableProps } from '../FixedHeaderTable';
+import { action, computed, observable, makeObservable } from 'mobx';
 import autobind from 'autobind-decorator';
 import {
     Column,
@@ -23,6 +23,7 @@ import {
     filterTreatmentCell,
 } from './treatmentsTableUtil';
 import { TreatmentsTable } from './AbstractTreatmentsTable';
+import { MultiSelectionTableRow } from 'pages/studyView/table/MultiSelectionTable';
 
 export enum SampleTreatmentsTableColumnKey {
     TREATMENT = 'Treatment',
@@ -41,7 +42,12 @@ export type SampleTreatmentsTableProps = {
     width: number;
     height: number;
     filters: string[][];
-    onUserSelection: (value: string[][]) => void;
+    onSubmitSelection: (value: string[][]) => void;
+    onChangeSelectedRows: (rowsKeys: string[]) => void;
+    extraButtons?: IFixedHeaderTableProps<
+        MultiSelectionTableRow
+    >['extraButtons'];
+    selectedRowsKeys: string[];
     selectedTreatments: string[];
     defaultSortBy: SampleTreatmentsTableColumnKey;
     columns: SampleTreatmentsTableColumn[];
@@ -69,8 +75,9 @@ export class SampleTreatmentsTable extends TreatmentsTable<
         cancerGeneFilterEnabled: false,
     };
 
-    constructor(props: SampleTreatmentsTableProps, context: any) {
-        super(props, context);
+    constructor(props: SampleTreatmentsTableProps) {
+        super(props);
+        makeObservable(this);
         this.sortBy = this.props.defaultSortBy;
     }
 
@@ -86,7 +93,7 @@ export class SampleTreatmentsTable extends TreatmentsTable<
             <LabeledCheckbox
                 checked={this.isChecked(treatmentUniqueKey(row))}
                 disabled={this.isDisabled(treatmentUniqueKey(row))}
-                onChange={_ => this.togglePreSelectRow(treatmentUniqueKey(row))}
+                onChange={_ => this.toggleSelectRow(treatmentUniqueKey(row))}
                 labelProps={{
                     style: {
                         display: 'flex',
@@ -143,6 +150,12 @@ export class SampleTreatmentsTable extends TreatmentsTable<
                 width: columnWidth,
             },
             [SampleTreatmentsTableColumnKey.COUNT]: {
+                tooltip: (
+                    <span>
+                        Number of samples acquired before treatment or after/on
+                        treatment
+                    </span>
+                ),
                 name: columnKey,
                 headerRender: () => (
                     <TreatmentGenericColumnHeader
@@ -239,8 +252,7 @@ export class SampleTreatmentsTable extends TreatmentsTable<
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     afterSorting(
         sortBy: SampleTreatmentsTableColumnKey,
         sortDirection: SortDirection
@@ -263,12 +275,16 @@ export class SampleTreatmentsTable extends TreatmentsTable<
                         afterSelectingRows={this.afterSelectingRows}
                         defaultSelectionOperator={this.selectionType}
                         toggleSelectionOperator={this.toggleSelectionOperator}
+                        extraButtons={this.props.extraButtons}
                         sortBy={this.sortBy}
                         sortDirection={this.sortDirection}
                         afterSorting={this.afterSorting}
                         fixedTopRowsData={this.preSelectedRows}
                         highlightedRowClassName={this.selectedRowClassName}
-                        numberOfSelectedRows={this.selectedRowsKeys.length}
+                        numberOfSelectedRows={
+                            this.props.selectedRowsKeys.length
+                        }
+                        showSetOperationsButton={true}
                     />
                 )}
             </div>

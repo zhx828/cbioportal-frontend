@@ -48,7 +48,7 @@
             display: inline-block;
             background-color: #ddd;
             padding: 1px 2px;
-            margin-right: 3px;
+            margin-right: 6px;
             border-radius: 3px;
             margin-bottom: 3px;
             font-size: 11px;
@@ -82,5 +82,11 @@
         &:last-child {
             margin-bottom: 0px;
         }
+    }
+}
+
+.patient-clinical-data-tab {
+    > div {
+        margin-bottom: 20px;
     }
 }

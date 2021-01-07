@@ -61,8 +61,15 @@ export function toFixedWithThreshold(value: number, digits: number): string {
     return fixed;
 }
 
-export function getPercentage(proportion: number, digits: number = 1) {
-    return `${toFixedWithThreshold(100 * proportion, digits)}%`;
+export function getPercentage(proportion: number) {
+    const perc = 100 * proportion;
+    if (perc === 0) {
+        return '0%';
+    } else if (perc < 1) {
+        return `<1%`;
+    } else {
+        return `${Math.round(perc)}%`;
+    }
 }
 
 export function formatSignificanceValueWithStyle(value: number): JSX.Element {
@@ -113,18 +120,19 @@ export function toConditionalPrecisionWithMinimum(
     }
 }
 
-/* difference between this function and the previous one is it will display
-percentages less than 1% as <1%
-*/
+// return 'NA' for NaN value
+// difference between this function and the previous one is it will display percentages less than 1% as <1%
 export function getMutationalSignaturePercentage(
     proportion: number,
     digits: number = 0
 ) {
     //0.003 -> 0.3
-
-    if (100 * proportion < 1) {
-        return '<1%';
+    if (Number.isNaN(proportion)) {
+        return 'NA';
+    } else {
+        if (100 * proportion < 1) {
+            return '<1%';
+        }
+        return `${toFixedWithThreshold(100 * proportion, digits)}%`;
     }
-
-    return `${toFixedWithThreshold(100 * proportion, digits)}%`;
 }

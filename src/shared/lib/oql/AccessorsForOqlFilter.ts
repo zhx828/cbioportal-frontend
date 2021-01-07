@@ -6,6 +6,7 @@ import {
 import * as _ from 'lodash';
 import {
     AlterationTypeConstants,
+    CustomDriverNumericGeneMolecularData,
     AnnotatedExtendedAlteration,
     AnnotatedMutation,
     AnnotatedNumericGeneMolecularData,
@@ -31,6 +32,22 @@ export type SimplifiedMutationType =
     | 'fusion'
     | 'inframe'
     | 'other';
+
+export function getMutationSubType(d: {
+    mutationType: string;
+    proteinChange: string;
+}) {
+    if (d.mutationType && d.mutationType.toLowerCase() === 'fusion') {
+        return null;
+    } else if (
+        d.proteinChange &&
+        d.proteinChange.toLowerCase() === 'promoter'
+    ) {
+        return 'promoter';
+    } else {
+        return getSimplifiedMutationType(d.mutationType);
+    }
+}
 
 export function getSimplifiedMutationType(
     type: string
@@ -100,7 +117,7 @@ export type Datum =
     | Mutation
     | NumericGeneMolecularData
     | AnnotatedMutation
-    | AnnotatedNumericGeneMolecularData;
+    | CustomDriverNumericGeneMolecularData;
 
 export default class AccessorsForOqlFilter
     implements IAccessorsForOqlFilter<Datum> {
@@ -142,22 +159,13 @@ export default class AccessorsForOqlFilter
                 (d as NumericGeneMolecularData).value
             ];
         } else {
-            return null;
+            return undefined;
         }
     }
 
     public mut_type(d: Datum) {
         if (this.isMutation(d)) {
-            if (d.mutationType && d.mutationType.toLowerCase() === 'fusion') {
-                return null;
-            } else if (
-                d.proteinChange &&
-                d.proteinChange.toLowerCase() === 'promoter'
-            ) {
-                return 'promoter';
-            } else {
-                return getSimplifiedMutationType(d.mutationType);
-            }
+            return getMutationSubType(d);
         } else {
             return null;
         }
@@ -247,7 +255,7 @@ export default class AccessorsForOqlFilter
             AlterationTypeConstants.COPY_NUMBER_ALTERATION
         ) {
             // covers CNA
-            return !!(d as AnnotatedNumericGeneMolecularData).oncoKbOncogenic;
+            return !!(d as AnnotatedNumericGeneMolecularData).putativeDriver;
         } else {
             return null;
         }

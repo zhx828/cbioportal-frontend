@@ -1,15 +1,21 @@
 import {
+    evaluateDiscreteCNAPutativeDriverInfo,
     fetchCosmicData,
+    fetchGermlineConsentedSamples,
     fetchOncoKbData,
-    makeStudyToCancerTypeMap,
-    mergeMutationsIncludingUncalled,
-    generateMutationIdByEvent,
-    generateMutationIdByGeneAndProteinChangeAndEvent,
-    findSamplesWithoutCancerTypeClinicalData,
     fetchSamplesWithoutCancerTypeClinicalData,
     fetchStudiesForSamplesWithoutCancerTypeClinicalData,
-    fetchGermlineConsentedSamples,
+    filterAndAnnotateMolecularData,
+    filterAndAnnotateMutations,
+    findSamplesWithoutCancerTypeClinicalData,
+    generateMutationIdByEvent,
+    generateMutationIdByGeneAndProteinChangeAndEvent,
+    getOncoKbOncogenic,
+    makeStudyToCancerTypeMap,
+    mergeMutationsIncludingUncalled,
     noGenePanelUsed,
+    PUTATIVE_DRIVER,
+    PUTATIVE_PASSENGER,
 } from './StoreUtils';
 import * as _ from 'lodash';
 import { assert } from 'chai';
@@ -17,11 +23,20 @@ import sinon from 'sinon';
 import { MobxPromise } from 'mobxpromise';
 import {
     CancerStudy,
-    Mutation,
     ClinicalData,
+    Gene,
+    Mutation,
     Sample,
 } from 'cbioportal-ts-api-client';
 import { initMutation } from 'test/MutationMockUtils';
+import {
+    AnnotatedMutation,
+    AnnotatedNumericGeneMolecularData,
+    CustomDriverNumericGeneMolecularData,
+} from 'pages/resultsView/ResultsViewPageStore';
+import { IndicatorQueryResp } from 'oncokb-ts-api-client';
+import { observable } from 'mobx';
+import { getSimplifiedMutationType } from 'shared/lib/oql/AccessorsForOqlFilter';
 
 describe('StoreUtils', () => {
     let emptyMutationData: MobxPromise<Mutation[]>;
@@ -190,8 +205,6 @@ describe('StoreUtils', () => {
             error: undefined,
         };
     });
-
-    after(() => {});
 
     describe('fetchCosmicCount', () => {
         it("won't fetch cosmic data if there are no mutations", done => {
@@ -624,6 +637,829 @@ describe('StoreUtils', () => {
         });
         it('returns false for any other gene panel id', () => {
             assert.isFalse(noGenePanelUsed('dummy_gene_panel_id'));
+        });
+    });
+
+    describe('filterAndAnnotateMolecularData', () => {
+        it('returns empty list for empty input', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData([], () => ({} as any), {}),
+                {
+                    data: [],
+                    vus: [],
+                }
+            );
+        });
+        it('annotates a single VUS CNA datum', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        {
+                            value: 0,
+                            entrezGeneId: 1,
+                        } as CustomDriverNumericGeneMolecularData,
+                    ],
+                    () => ({
+                        oncoKb: '',
+                        customDriverBinary: false,
+                        customDriverTier: undefined, // can be undefined, empty string, tier name
+                    }),
+                    { 1: { hugoGeneSymbol: 'mygene' } as Gene }
+                ),
+                {
+                    data: [],
+                    vus: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        } as AnnotatedNumericGeneMolecularData,
+                    ],
+                }
+            );
+        });
+        it('annotates a single driver CNA datum - OncoKB', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        {
+                            value: 0,
+                            entrezGeneId: 1,
+                        } as CustomDriverNumericGeneMolecularData,
+                    ],
+                    () => ({
+                        oncoKb: 'Oncogenic',
+                        customDriverBinary: false,
+                        customDriverTier: undefined,
+                    }),
+                    { 1: { hugoGeneSymbol: 'mygene' } as Gene }
+                ),
+                {
+                    vus: [],
+                    data: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: 'Oncogenic',
+                            putativeDriver: true,
+                        } as AnnotatedNumericGeneMolecularData,
+                    ],
+                }
+            );
+        });
+        it('annotates a single driver CNA datum - custom driver annotation', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        {
+                            value: 0,
+                            entrezGeneId: 1,
+                        } as CustomDriverNumericGeneMolecularData,
+                    ],
+                    () => ({
+                        oncoKb: '',
+                        customDriverBinary: true,
+                        customDriverTier: undefined,
+                    }),
+                    { 1: { hugoGeneSymbol: 'mygene' } as Gene }
+                ),
+                {
+                    vus: [],
+                    data: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        } as AnnotatedNumericGeneMolecularData,
+                    ],
+                }
+            );
+        });
+        it('annotates a single driver CNA datum - custom driver tier', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        {
+                            value: 0,
+                            entrezGeneId: 1,
+                        } as CustomDriverNumericGeneMolecularData,
+                    ],
+                    () => ({
+                        oncoKb: '',
+                        customDriverBinary: false,
+                        customDriverTier:
+                            'All_mutations_in_tier_become_Drivers!',
+                        // tier name
+                    }),
+                    { 1: { hugoGeneSymbol: 'mygene' } as Gene }
+                ),
+                {
+                    vus: [],
+                    data: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        } as AnnotatedNumericGeneMolecularData,
+                    ],
+                }
+            );
+        });
+        it('annotates a single driver VUS datum - disregards empty string custom driver tier', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        {
+                            value: 0,
+                            entrezGeneId: 1,
+                        } as CustomDriverNumericGeneMolecularData,
+                    ],
+                    () => ({
+                        oncoKb: '',
+                        customDriverBinary: false,
+                        customDriverTier: '',
+                        // tier name
+                    }),
+                    { 1: { hugoGeneSymbol: 'mygene' } as Gene }
+                ),
+                {
+                    vus: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        } as AnnotatedNumericGeneMolecularData,
+                    ],
+                    data: [],
+                }
+            );
+        });
+        it('annotates a few CNA data points', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        { value: 0, entrezGeneId: 1 },
+                        {
+                            value: 1,
+                            entrezGeneId: 2,
+                        } as CustomDriverNumericGeneMolecularData,
+                    ] as CustomDriverNumericGeneMolecularData[],
+                    () => ({
+                        oncoKb: '',
+                        customDriverBinary: true,
+                        customDriverTier: undefined,
+                        // tier name
+                    }),
+                    {
+                        1: { hugoGeneSymbol: 'mygene1' } as Gene,
+                        2: { hugoGeneSymbol: 'mygene2' } as Gene,
+                    }
+                ),
+                {
+                    vus: [],
+                    data: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene1',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                        {
+                            value: 1,
+                            hugoGeneSymbol: 'mygene2',
+                            entrezGeneId: 2,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                    ] as AnnotatedNumericGeneMolecularData[],
+                }
+            );
+        });
+        it('correctly sorts VUS and annotated CNA data points', () => {
+            assert.deepEqual(
+                filterAndAnnotateMolecularData(
+                    [
+                        { value: 0, entrezGeneId: 1 },
+                        {
+                            value: 1,
+                            entrezGeneId: 2,
+                        } as AnnotatedNumericGeneMolecularData,
+                    ] as AnnotatedNumericGeneMolecularData[],
+                    cnaDatum => {
+                        if (cnaDatum.entrezGeneId === 1) {
+                            return {
+                                oncoKb: '',
+                                customDriverBinary: true,
+                                customDriverTier: undefined,
+                            };
+                        } else {
+                            return {
+                                oncoKb: '',
+                                customDriverBinary: false,
+                                customDriverTier: undefined,
+                            };
+                        }
+                    },
+                    {
+                        1: { hugoGeneSymbol: 'mygene1' } as Gene,
+                        2: { hugoGeneSymbol: 'mygene2' } as Gene,
+                    }
+                ),
+                {
+                    data: [
+                        {
+                            value: 0,
+                            hugoGeneSymbol: 'mygene1',
+                            entrezGeneId: 1,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                    ] as AnnotatedNumericGeneMolecularData[],
+                    vus: [
+                        {
+                            value: 1,
+                            hugoGeneSymbol: 'mygene2',
+                            entrezGeneId: 2,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                    ] as AnnotatedNumericGeneMolecularData[],
+                }
+            );
+        });
+    });
+
+    describe('evaluateDiscreteCNAPutativeDriverInfo', () => {
+        it('no driver annotations present', () => {
+            assert.deepEqual(
+                evaluateDiscreteCNAPutativeDriverInfo(
+                    {
+                        entrezGeneId: 1,
+                        value: 0,
+                        driverFilter: PUTATIVE_PASSENGER,
+                        driverFilterAnnotation: '',
+                        driverTiersFilter: 'Class 1',
+                        driverTiersFilterAnnotation: '',
+                    } as CustomDriverNumericGeneMolecularData,
+                    {
+                        oncogenic: 'Unknown',
+                    } as IndicatorQueryResp,
+                    false,
+                    observable.map<string, boolean>({ 'Class 1': false })
+                ),
+                {
+                    oncoKb: '',
+                    customDriverBinary: false,
+                    customDriverTier: undefined,
+                }
+            );
+        });
+        it('OncoKb', () => {
+            assert.deepEqual(
+                evaluateDiscreteCNAPutativeDriverInfo(
+                    {
+                        entrezGeneId: 1,
+                        value: 0,
+                        driverFilter: PUTATIVE_PASSENGER,
+                        driverFilterAnnotation: '',
+                        driverTiersFilter: 'Class 1',
+                        driverTiersFilterAnnotation: '',
+                    } as CustomDriverNumericGeneMolecularData,
+                    {
+                        oncogenic: 'Oncogenic',
+                    } as IndicatorQueryResp,
+                    false,
+                    observable.map<string, boolean>({ 'Class 1': false })
+                ),
+                {
+                    oncoKb: 'Oncogenic',
+                    customDriverBinary: false,
+                    customDriverTier: undefined,
+                }
+            );
+        });
+        it('custom driver annnotation', () => {
+            assert.deepEqual(
+                evaluateDiscreteCNAPutativeDriverInfo(
+                    {
+                        entrezGeneId: 1,
+                        value: 0,
+                        driverFilter: PUTATIVE_DRIVER,
+                        driverFilterAnnotation: '',
+                        driverTiersFilter: 'Class 1',
+                        driverTiersFilterAnnotation: '',
+                    } as CustomDriverNumericGeneMolecularData,
+                    {
+                        oncogenic: 'Unknown',
+                    } as IndicatorQueryResp,
+                    false,
+                    observable.map<string, boolean>({ 'Class 1': false })
+                ),
+                {
+                    oncoKb: '',
+                    customDriverBinary: false,
+                    customDriverTier: undefined,
+                }
+            );
+            assert.deepEqual(
+                evaluateDiscreteCNAPutativeDriverInfo(
+                    {
+                        entrezGeneId: 1,
+                        value: 0,
+                        driverFilter: PUTATIVE_DRIVER,
+                        driverFilterAnnotation: '',
+                        driverTiersFilter: 'Class 1',
+                        driverTiersFilterAnnotation: '',
+                    } as CustomDriverNumericGeneMolecularData,
+                    {
+                        oncogenic: 'Unknown',
+                    } as IndicatorQueryResp,
+                    true,
+                    observable.map<string, boolean>({ 'Class 1': false })
+                ),
+                {
+                    oncoKb: '',
+                    customDriverBinary: true,
+                    customDriverTier: undefined,
+                }
+            );
+        });
+        it('custom tiers active', () => {
+            assert.deepEqual(
+                evaluateDiscreteCNAPutativeDriverInfo(
+                    {
+                        entrezGeneId: 1,
+                        value: 0,
+                        driverFilter: PUTATIVE_PASSENGER,
+                        driverFilterAnnotation: '',
+                        driverTiersFilter: 'Class 1',
+                        driverTiersFilterAnnotation: '',
+                    } as CustomDriverNumericGeneMolecularData,
+                    {
+                        oncogenic: 'Unknown',
+                    } as IndicatorQueryResp,
+                    false,
+                    observable.map<string, boolean>({ 'Class 1': true })
+                ),
+                {
+                    oncoKb: '',
+                    customDriverBinary: false,
+                    customDriverTier: 'Class 1',
+                }
+            );
+            assert.deepEqual(
+                evaluateDiscreteCNAPutativeDriverInfo(
+                    {
+                        entrezGeneId: 1,
+                        value: 0,
+                        driverFilter: PUTATIVE_PASSENGER,
+                        driverFilterAnnotation: '',
+                        driverTiersFilter: 'Class 2',
+                        driverTiersFilterAnnotation: '',
+                    } as CustomDriverNumericGeneMolecularData,
+                    {
+                        oncogenic: 'Unknown',
+                    } as IndicatorQueryResp,
+                    false,
+                    observable.map<string, boolean>({
+                        'Class 2': false,
+                        'Class 1': true,
+                    })
+                ),
+                {
+                    oncoKb: '',
+                    customDriverBinary: false,
+                    customDriverTier: undefined,
+                }
+            );
+        });
+    });
+
+    describe('filterAndAnnotateMutations', () => {
+        it('returns empty list for empty input', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations([], () => ({} as any), {}),
+                {
+                    data: [],
+                    germline: [],
+                    vus: [],
+                    vusAndGermline: [],
+                }
+            );
+        });
+        it('annotates a single mutation', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations(
+                    [{ mutationType: 'missense', entrezGeneId: 1 } as Mutation],
+                    () => ({
+                        oncoKb: '',
+                        hotspots: true,
+                        cbioportalCount: false,
+                        cosmicCount: true,
+                        customDriverBinary: false,
+                    }),
+                    { 1: { hugoGeneSymbol: 'mygene' } as Gene }
+                ),
+                {
+                    data: [
+                        {
+                            mutationType: 'missense',
+                            hugoGeneSymbol: 'mygene',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'missense'
+                            ),
+                            isHotspot: true,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        } as AnnotatedMutation,
+                    ],
+                    germline: [],
+                    vus: [],
+                    vusAndGermline: [],
+                }
+            );
+        });
+        it('annotates a few mutations', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations(
+                    [
+                        {
+                            mutationType: 'missense',
+                            entrezGeneId: 1,
+                        } as Mutation,
+                        {
+                            mutationType: 'in_frame_del',
+                            entrezGeneId: 1,
+                        } as Mutation,
+                        { mutationType: 'asdf', entrezGeneId: 134 } as Mutation,
+                    ],
+                    () => ({
+                        oncoKb: '',
+                        hotspots: true,
+                        cbioportalCount: false,
+                        cosmicCount: true,
+                        customDriverBinary: false,
+                    }),
+                    {
+                        1: { hugoGeneSymbol: 'gene1hello' } as Gene,
+                        134: { hugoGeneSymbol: 'gene3hello' } as Gene,
+                    }
+                ),
+                {
+                    data: [
+                        {
+                            mutationType: 'missense',
+                            hugoGeneSymbol: 'gene1hello',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'missense'
+                            ),
+                            isHotspot: true,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                        {
+                            mutationType: 'in_frame_del',
+                            hugoGeneSymbol: 'gene1hello',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'in_frame_del'
+                            ),
+                            isHotspot: true,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                        {
+                            mutationType: 'asdf',
+                            hugoGeneSymbol: 'gene3hello',
+                            entrezGeneId: 134,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'asdf'
+                            ),
+                            isHotspot: true,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                    ] as AnnotatedMutation[],
+                    vus: [],
+                    germline: [],
+                    vusAndGermline: [],
+                }
+            );
+        });
+        it('excludes a single non-annotated mutation', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations(
+                    [{ mutationType: 'missense', entrezGeneId: 1 } as Mutation],
+                    () => ({
+                        oncoKb: '',
+                        hotspots: false,
+                        cbioportalCount: false,
+                        cosmicCount: false,
+                        customDriverBinary: false,
+                    }),
+                    {
+                        1: { hugoGeneSymbol: 'gene1hello' } as Gene,
+                        134: { hugoGeneSymbol: 'gene3hello' } as Gene,
+                    }
+                ),
+                {
+                    data: [],
+                    germline: [],
+                    vus: [
+                        {
+                            mutationType: 'missense',
+                            hugoGeneSymbol: 'gene1hello',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'missense'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                    ] as AnnotatedMutation[],
+                    vusAndGermline: [],
+                }
+            );
+        });
+        it('excludes non-annotated mutations from a list of a few', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations(
+                    [
+                        {
+                            mutationType: 'missense',
+                            entrezGeneId: 1,
+                        } as Mutation,
+                        {
+                            mutationType: 'in_frame_del',
+                            entrezGeneId: 1,
+                        } as Mutation,
+                        { mutationType: 'asdf', entrezGeneId: 134 } as Mutation,
+                    ],
+                    m =>
+                        m.mutationType === 'in_frame_del'
+                            ? {
+                                  oncoKb: '',
+                                  hotspots: false,
+                                  cbioportalCount: false,
+                                  cosmicCount: false,
+                                  customDriverBinary: true,
+                              }
+                            : {
+                                  oncoKb: '',
+                                  hotspots: false,
+                                  cbioportalCount: false,
+                                  cosmicCount: false,
+                                  customDriverBinary: false,
+                              },
+                    {
+                        1: { hugoGeneSymbol: 'gene1hello' } as Gene,
+                        134: { hugoGeneSymbol: 'gene3hello' } as Gene,
+                    }
+                ),
+                {
+                    data: [
+                        {
+                            mutationType: 'in_frame_del',
+                            hugoGeneSymbol: 'gene1hello',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'in_frame_del'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                    ] as AnnotatedMutation[],
+                    vus: [
+                        {
+                            mutationType: 'missense',
+                            hugoGeneSymbol: 'gene1hello',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'missense'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                        {
+                            mutationType: 'asdf',
+                            hugoGeneSymbol: 'gene3hello',
+                            entrezGeneId: 134,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'asdf'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                    ] as AnnotatedMutation[],
+                    germline: [],
+                    vusAndGermline: [],
+                }
+            );
+        });
+        it('excludes a single germline mutation', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations(
+                    [
+                        {
+                            mutationType: 'missense',
+                            entrezGeneId: 1,
+                            mutationStatus: 'germline',
+                        } as Mutation,
+                    ],
+                    () => ({
+                        oncoKb: '',
+                        hotspots: false,
+                        cbioportalCount: false,
+                        cosmicCount: false,
+                        customDriverBinary: false,
+                    }),
+                    {
+                        1: { hugoGeneSymbol: 'gene1hello' } as Gene,
+                        134: { hugoGeneSymbol: 'gene3hello' } as Gene,
+                    }
+                ),
+                {
+                    data: [],
+                    vusAndGermline: [
+                        {
+                            mutationType: 'missense',
+                            hugoGeneSymbol: 'gene1hello',
+                            mutationStatus: 'germline',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'missense'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                    ] as AnnotatedMutation[],
+                    vus: [],
+                    germline: [],
+                }
+            );
+        });
+        it('excludes germline mutations from a list of a few', () => {
+            assert.deepEqual(
+                filterAndAnnotateMutations(
+                    [
+                        {
+                            mutationType: 'missense',
+                            entrezGeneId: 1,
+                            mutationStatus: 'germline',
+                        } as Mutation,
+                        {
+                            mutationType: 'in_frame_del',
+                            entrezGeneId: 1,
+                        } as Mutation,
+                        {
+                            mutationType: 'asdf',
+                            entrezGeneId: 134,
+                            mutationStatus: 'germline',
+                        } as Mutation,
+                    ],
+                    m =>
+                        m.mutationType === 'in_frame_del'
+                            ? {
+                                  oncoKb: '',
+                                  hotspots: false,
+                                  cbioportalCount: false,
+                                  cosmicCount: false,
+                                  customDriverBinary: true,
+                              }
+                            : {
+                                  oncoKb: '',
+                                  hotspots: false,
+                                  cbioportalCount: false,
+                                  cosmicCount: false,
+                                  customDriverBinary: false,
+                              },
+                    {
+                        1: { hugoGeneSymbol: 'gene1hello' } as Gene,
+                        134: { hugoGeneSymbol: 'gene3hello' } as Gene,
+                    }
+                ),
+                {
+                    data: [
+                        {
+                            mutationType: 'in_frame_del',
+                            hugoGeneSymbol: 'gene1hello',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'in_frame_del'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: true,
+                        },
+                    ] as AnnotatedMutation[],
+                    germline: [],
+                    vus: [],
+                    vusAndGermline: [
+                        {
+                            mutationType: 'missense',
+                            hugoGeneSymbol: 'gene1hello',
+                            mutationStatus: 'germline',
+                            entrezGeneId: 1,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'missense'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                        {
+                            mutationType: 'asdf',
+                            hugoGeneSymbol: 'gene3hello',
+                            mutationStatus: 'germline',
+                            entrezGeneId: 134,
+                            simplifiedMutationType: getSimplifiedMutationType(
+                                'asdf'
+                            ),
+                            isHotspot: false,
+                            oncoKbOncogenic: '',
+                            putativeDriver: false,
+                        },
+                    ] as AnnotatedMutation[],
+                }
+            );
+        });
+    });
+
+    describe('getOncoKbOncogenic', () => {
+        it('should return Likely Oncogenic if thats the input', () => {
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'Likely Oncogenic',
+                } as IndicatorQueryResp),
+                'Likely Oncogenic'
+            );
+        });
+        it('should return Oncogenic if thats the input', () => {
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'Oncogenic',
+                } as IndicatorQueryResp),
+                'Oncogenic'
+            );
+        });
+        it('should return Predicted Oncogenic if thats the input', () => {
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'Predicted Oncogenic',
+                } as IndicatorQueryResp),
+                'Predicted Oncogenic'
+            );
+        });
+        it('should return empty string for any other case', () => {
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'Likely Neutral',
+                } as IndicatorQueryResp),
+                ''
+            );
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'Inconclusive',
+                } as IndicatorQueryResp),
+                ''
+            );
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'Unknown',
+                } as IndicatorQueryResp),
+                ''
+            );
+            assert.equal(
+                getOncoKbOncogenic({ oncogenic: '' } as IndicatorQueryResp),
+                ''
+            );
+            assert.equal(
+                getOncoKbOncogenic({
+                    oncogenic: 'asdfasdfasefawer',
+                } as IndicatorQueryResp),
+                ''
+            );
+            assert.equal(
+                getOncoKbOncogenic({ oncogenic: undefined } as any),
+                ''
+            );
         });
     });
 });

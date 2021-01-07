@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { observer } from 'mobx-react';
-import { observable, computed, action } from 'mobx';
+import { observable, computed, action, makeObservable } from 'mobx';
 import ExpressionEnrichmentTable, {
     ExpressionEnrichmentTableColumnType,
 } from 'pages/resultsView/enrichments/ExpressionEnrichmentsTable';
@@ -14,7 +14,7 @@ import {
     getFilteredData,
     EnrichmentType,
 } from 'pages/resultsView/enrichments/EnrichmentsUtil';
-import { ExpressionEnrichmentRow } from 'shared/model/ExpressionEnrichmentRow';
+import { ExpressionEnrichmentRow } from 'shared/model/EnrichmentRow';
 import AddCheckedGenes from 'pages/resultsView/enrichments/AddCheckedGenes';
 import MiniScatterChart from 'pages/resultsView/enrichments/MiniScatterChart';
 import * as _ from 'lodash';
@@ -49,6 +49,7 @@ export interface IExpressionEnrichmentContainerProps {
         [uniqueSampleKey: string]: ExtendedAlteration[];
     };
     isGeneCheckBoxEnabled?: boolean;
+    groupsSelectorPlaceholder?: string;
 }
 
 @observer
@@ -56,16 +57,21 @@ export default class ExpressionEnrichmentContainer extends React.Component<
     IExpressionEnrichmentContainerProps,
     {}
 > {
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
     static defaultProps: Partial<IExpressionEnrichmentContainerProps> = {
         alteredVsUnalteredMode: true,
         isGeneCheckBoxEnabled: false,
+        groupsSelectorPlaceholder: 'High expression in ...',
     };
 
     @observable overExpressedFilter: boolean = true;
     @observable underExpressedFilter: boolean = true;
     @observable significanceFilter: boolean = false;
     @observable.shallow checkedGenes: string[] = [];
-    @observable clickedGeneHugo: string;
+    @observable.ref clickedGeneHugo: string;
     @observable clickedGeneEntrez: number;
     @observable.ref selectedGenes: string[] | null;
     @observable.ref highlightedRow: ExpressionEnrichmentRow | undefined;
@@ -87,8 +93,18 @@ export default class ExpressionEnrichmentContainer extends React.Component<
             this.data,
             this._expressedGroups,
             this.significanceFilter,
-            this.selectedGenes
+            this.filterByGene
         );
+    }
+
+    @autobind
+    private filterByGene(hugoGeneSymbol: string) {
+        if (this.selectedGenes) {
+            return this.selectedGenes.includes(hugoGeneSymbol);
+        } else {
+            // no need to filter the data since there is no selection
+            return true;
+        }
     }
 
     @autobind
@@ -223,8 +239,7 @@ export default class ExpressionEnrichmentContainer extends React.Component<
         return columns;
     }
 
-    @autobind
-    @action
+    @action.bound
     onChange(values: { value: string }[]) {
         this._expressedGroups = _.map(values, datum => datum.value);
     }
@@ -276,7 +291,7 @@ export default class ExpressionEnrichmentContainer extends React.Component<
                     {this.isTwoGroupAnalysis && (
                         <MiniScatterChart
                             data={data}
-                            selectedGenesSet={this.selectedGenesSet}
+                            selectedSet={this.selectedGenesSet}
                             xAxisLeftLabel={
                                 this.group2.nameOfEnrichmentDirection ||
                                 this.group2.name
@@ -324,8 +339,10 @@ export default class ExpressionEnrichmentContainer extends React.Component<
                     <div className={styles.Checkboxes}>
                         <div style={{ width: 250, marginRight: 7 }}>
                             <CheckedSelect
-                                name={'enrichedGroupsSelector'}
-                                placeholder={'Select enriched groups'}
+                                name={'groupsSelector'}
+                                placeholder={
+                                    this.props.groupsSelectorPlaceholder
+                                }
                                 onChange={this.onChange}
                                 options={this.options}
                                 value={this.selectedValues}

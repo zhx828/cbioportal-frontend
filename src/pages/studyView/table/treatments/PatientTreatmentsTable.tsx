@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { observer } from 'mobx-react';
 import * as _ from 'lodash';
-import FixedHeaderTable from '../FixedHeaderTable';
-import { action, computed, observable } from 'mobx';
+import FixedHeaderTable, { IFixedHeaderTableProps } from '../FixedHeaderTable';
+import { action, computed, observable, makeObservable } from 'mobx';
 import autobind from 'autobind-decorator';
 import {
     Column,
@@ -26,6 +26,7 @@ import {
     filterTreatmentCell,
 } from './treatmentsTableUtil';
 import { TreatmentsTable } from './AbstractTreatmentsTable';
+import { MultiSelectionTableRow } from 'pages/studyView/table/MultiSelectionTable';
 
 export enum PatientTreatmentsTableColumnKey {
     TREATMENT = 'Treatment',
@@ -43,7 +44,12 @@ export type PatientTreatmentsTableProps = {
     width: number;
     height: number;
     filters: string[][];
-    onUserSelection: (value: string[][]) => void;
+    onSubmitSelection: (value: string[][]) => void;
+    onChangeSelectedRows: (rowsKeys: string[]) => void;
+    extraButtons?: IFixedHeaderTableProps<
+        MultiSelectionTableRow
+    >['extraButtons'];
+    selectedRowsKeys: string[];
     selectedTreatments: string[];
     defaultSortBy: PatientTreatmentsTableColumnKey;
     columns: PatientTreatmentsTableColumn[];
@@ -70,8 +76,9 @@ export class PatientTreatmentsTable extends TreatmentsTable<
         cancerGeneFilterEnabled: false,
     };
 
-    constructor(props: PatientTreatmentsTableProps, context: any) {
-        super(props, context);
+    constructor(props: PatientTreatmentsTableProps) {
+        super(props);
+        makeObservable(this);
         this.sortBy = this.props.defaultSortBy;
     }
 
@@ -83,7 +90,7 @@ export class PatientTreatmentsTable extends TreatmentsTable<
             <LabeledCheckbox
                 checked={this.isChecked(treatmentUniqueKey(row))}
                 disabled={this.isDisabled(treatmentUniqueKey(row))}
-                onChange={_ => this.togglePreSelectRow(treatmentUniqueKey(row))}
+                onChange={_ => this.toggleSelectRow(treatmentUniqueKey(row))}
                 labelProps={{
                     style: {
                         display: 'flex',
@@ -128,6 +135,7 @@ export class PatientTreatmentsTable extends TreatmentsTable<
                 width: columnWidth,
             },
             [PatientTreatmentsTableColumnKey.COUNT]: {
+                tooltip: <span>Number of patients treated</span>,
                 name: columnKey,
                 headerRender: () => (
                     <TreatmentGenericColumnHeader
@@ -225,8 +233,7 @@ export class PatientTreatmentsTable extends TreatmentsTable<
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     afterSorting(
         sortBy: PatientTreatmentsTableColumnKey,
         sortDirection: SortDirection
@@ -249,12 +256,16 @@ export class PatientTreatmentsTable extends TreatmentsTable<
                         afterSelectingRows={this.afterSelectingRows}
                         defaultSelectionOperator={this.selectionType}
                         toggleSelectionOperator={this.toggleSelectionOperator}
+                        extraButtons={this.props.extraButtons}
                         sortBy={this.sortBy}
                         sortDirection={this.sortDirection}
                         afterSorting={this.afterSorting}
                         fixedTopRowsData={this.preSelectedRows}
                         highlightedRowClassName={this.selectedRowClassName}
-                        numberOfSelectedRows={this.selectedRowsKeys.length}
+                        numberOfSelectedRows={
+                            this.props.selectedRowsKeys.length
+                        }
+                        showSetOperationsButton={true}
                     />
                 )}
             </div>

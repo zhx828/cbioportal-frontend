@@ -21,6 +21,7 @@ import {
     IReactionDisposer,
     observable,
     reaction,
+    makeObservable,
 } from 'mobx';
 import autobind from 'autobind-decorator';
 import { AppStore } from '../../AppStore';
@@ -36,6 +37,9 @@ import styles from './styles.module.scss';
 import { OverlapStrategy } from '../../shared/lib/comparison/ComparisonStore';
 import { buildCBioPortalPageUrl } from 'shared/api/urls';
 import MethylationEnrichments from './MethylationEnrichments';
+import GenericAssayEnrichments from './GenericAssayEnrichments';
+import _ from 'lodash';
+import { deriveDisplayTextFromGenericAssayType } from 'pages/resultsView/plots/PlotsTabUtils';
 
 export interface IGroupComparisonPageProps {
     routing: any;
@@ -54,6 +58,7 @@ export default class GroupComparisonPage extends React.Component<
 
     constructor(props: IGroupComparisonPageProps) {
         super(props);
+        makeObservable(this);
         this.urlWrapper = new GroupComparisonURLWrapper(props.routing);
         this.queryReaction = reaction(
             () => this.urlWrapper.query.sessionId,
@@ -86,7 +91,7 @@ export default class GroupComparisonPage extends React.Component<
     private getTabHref(tabId: string) {
         return URL.format({
             pathname: tabId,
-            query: this.props.routing.location.query,
+            query: this.props.routing.query,
             hash: this.props.routing.location.hash,
         });
     }
@@ -113,6 +118,7 @@ export default class GroupComparisonPage extends React.Component<
             this.store.proteinEnrichmentProfiles,
             this.store.methylationEnrichmentProfiles,
             this.store.survivalClinicalDataExists,
+            this.store.genericAssayEnrichmentProfilesGroupByGenericAssayType,
         ],
         render: () => {
             return (
@@ -214,6 +220,33 @@ export default class GroupComparisonPage extends React.Component<
                             <MethylationEnrichments store={this.store} />
                         </MSKTab>
                     )}
+                    {this.store.showGenericAssayTab &&
+                        _.keys(
+                            this.store
+                                .genericAssayEnrichmentProfilesGroupByGenericAssayType
+                                .result
+                        ).map(genericAssayType => {
+                            return (
+                                <MSKTab
+                                    id={`${
+                                        GroupComparisonTab.GENERIC_ASSAY_PREFIX
+                                    }_${genericAssayType.toLowerCase()}`}
+                                    linkText={deriveDisplayTextFromGenericAssayType(
+                                        genericAssayType
+                                    )}
+                                    anchorClassName={
+                                        this.store.genericAssayTabUnavailable
+                                            ? 'greyedOut'
+                                            : ''
+                                    }
+                                >
+                                    <GenericAssayEnrichments
+                                        store={this.store}
+                                        genericAssayType={genericAssayType}
+                                    />
+                                </MSKTab>
+                            );
+                        })}
                 </MSKTabs>
             );
         },
@@ -276,8 +309,7 @@ export default class GroupComparisonPage extends React.Component<
         },
     });
 
-    @autobind
-    @action
+    @action.bound
     public onOverlapStrategySelect(option: any) {
         trackEvent({
             category: 'groupComparison',

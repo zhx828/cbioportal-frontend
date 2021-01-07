@@ -13,6 +13,7 @@ import {
     IReactionPublic,
     observable,
     reaction,
+    makeObservable,
 } from 'mobx';
 import { observer } from 'mobx-react';
 import * as React from 'react';
@@ -35,6 +36,11 @@ export enum ColumnSortDirection {
     DESC = 'desc',
 }
 
+export type ColumnSort = {
+    column: string;
+    sortDirection?: ColumnSortDirection;
+};
+
 export type DataTableProps<T> = {
     data?: T[];
     dataStore?: DataStore;
@@ -42,9 +48,8 @@ export type DataTableProps<T> = {
     className?: string;
     reactTableProps?: Partial<TableProps<T>>;
 
-    initialSortColumnData?: (RemoteData<any> | undefined)[];
-    initialSortColumn?: string;
-    initialSortDirection?: ColumnSortDirection;
+    initialSort?: ColumnSort[];
+    initialSortRemoteData?: (RemoteData<any> | undefined)[];
     initialItemsPerPage?: number;
 
     highlightColorLight?: string;
@@ -63,11 +68,11 @@ export type DataTableProps<T> = {
     columnSelectorProps?: ColumnSelectorProps;
 };
 
-export function getInitialColumnDataStatus(
-    initialSortColumnData?: (RemoteData<any> | undefined)[]
+export function getInitialSortDataStatus(
+    initialSortRemoteData?: (RemoteData<any> | undefined)[]
 ) {
-    return initialSortColumnData
-        ? getRemoteDataGroupStatus(..._.compact(initialSortColumnData))
+    return initialSortRemoteData
+        ? getRemoteDataGroupStatus(..._.compact(initialSortRemoteData))
         : 'complete';
 }
 
@@ -99,7 +104,6 @@ export default class DataTable<T> extends React.Component<
 > {
     public static defaultProps = {
         data: [],
-        initialSortDirection: ColumnSortDirection.DESC,
         initialItemsPerPage: 10,
         highlightColorLight: '#B0BED9',
         highlightColorDark: '#9FAFD1',
@@ -119,6 +123,17 @@ export default class DataTable<T> extends React.Component<
 
     constructor(props: DataTableProps<T>) {
         super(props);
+
+        makeObservable<
+            DataTable<T>,
+            | '_columnVisibilityOverride'
+            | 'expanded'
+            | 'onSearch'
+            | 'onVisibilityToggle'
+            | 'updateColumnVisibility'
+            | 'onExpandedChange'
+            | 'resetExpander'
+        >(this);
 
         this.filterInputReaction = this.props.dataStore
             ? this.createFilterInputResetReaction(this.props.dataStore)
@@ -163,37 +178,24 @@ export default class DataTable<T> extends React.Component<
     }
 
     @computed
-    get defaultPageSize() {
-        const initialItemsPerPage = this.props.initialItemsPerPage;
-
-        return this.tableData
-            ? this.tableData.length > initialItemsPerPage!
-                ? initialItemsPerPage
-                : this.tableData.length
-            : 1;
-    }
-
-    @computed
-    get initialColumnDataStatus() {
-        return getInitialColumnDataStatus(this.props.initialSortColumnData);
+    get initialSortDataStatus() {
+        return getInitialSortDataStatus(this.props.initialSortRemoteData);
     }
 
     @computed
     get defaultSorted() {
-        const { initialSortColumn, initialSortDirection } = this.props;
-
+        // we need to wait for the async data to complete,
+        // otherwise initial sort won't work
         if (
-            initialSortColumn === undefined ||
-            this.initialColumnDataStatus === 'pending'
+            this.props.initialSort === undefined ||
+            this.initialSortDataStatus === 'pending'
         ) {
             return undefined;
         } else {
-            return [
-                {
-                    id: initialSortColumn,
-                    desc: initialSortDirection === ColumnSortDirection.DESC,
-                },
-            ];
+            return this.props.initialSort.map(s => ({
+                id: s.column,
+                desc: s.sortDirection !== ColumnSortDirection.ASC, // default: DESC
+            }));
         }
     }
 
@@ -258,7 +260,7 @@ export default class DataTable<T> extends React.Component<
                                 : undefined
                         }
                         defaultSorted={this.defaultSorted}
-                        defaultPageSize={this.defaultPageSize}
+                        defaultPageSize={this.props.initialItemsPerPage}
                         showPagination={this.showPagination}
                         className="-striped -highlight"
                         previousText="<"
@@ -268,7 +270,7 @@ export default class DataTable<T> extends React.Component<
                         onPageChange={this.resetExpander}
                         onPageSizeChange={this.resetExpander}
                         onSortedChange={this.resetExpander}
-                        minRows={0}
+                        minRows={1}
                         {...this.props.reactTableProps}
                     />
                 </div>
@@ -296,7 +298,11 @@ export default class DataTable<T> extends React.Component<
     protected createExpanderResetReaction(dataStore: DataStore) {
         return reaction(
             () => [dataStore.selectionFilters, dataStore.dataFilters],
-            (filters: DataFilter[][], disposer: IReactionPublic) => {
+            (
+                filters: DataFilter[][],
+                prev: DataFilter[][],
+                disposer: IReactionPublic
+            ) => {
                 if (filters.length > 0) {
                     this.resetExpander();
                 }

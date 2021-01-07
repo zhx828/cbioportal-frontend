@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { observer } from 'mobx-react';
 import * as _ from 'lodash';
-import FixedHeaderTable from './FixedHeaderTable';
-import { action, computed, observable } from 'mobx';
+import FixedHeaderTable, { IFixedHeaderTableProps } from './FixedHeaderTable';
+import { action, computed, observable, makeObservable } from 'mobx';
 import autobind from 'autobind-decorator';
 import {
     Column,
@@ -74,7 +74,12 @@ export type MultiSelectionTableProps = {
     width: number;
     height: number;
     filters: string[][];
-    onUserSelection: (value: string[][]) => void;
+    onSubmitSelection: (value: string[][]) => void;
+    onChangeSelectedRows: (rowsKeys: string[]) => void;
+    extraButtons?: IFixedHeaderTableProps<
+        MultiSelectionTableRow
+    >['extraButtons'];
+    selectedRowsKeys: string[];
     onGeneSelect: (hugoGeneSymbol: string) => void;
     selectedGenes: string[];
     cancerGeneFilterEnabled?: boolean;
@@ -108,7 +113,6 @@ export class MultiSelectionTable extends React.Component<
     MultiSelectionTableProps,
     {}
 > {
-    @observable protected selectedRowsKeys: string[] = [];
     @observable protected sortBy: MultiSelectionTableColumnKey;
     @observable private sortDirection: SortDirection;
     @observable private modalSettings: {
@@ -125,6 +129,7 @@ export class MultiSelectionTable extends React.Component<
 
     constructor(props: MultiSelectionTableProps, context: any) {
         super(props, context);
+        makeObservable(this);
         this.sortBy = this.props.defaultSortBy;
     }
 
@@ -253,9 +258,7 @@ export class MultiSelectionTable extends React.Component<
                     <LabeledCheckbox
                         checked={this.isChecked(data.uniqueKey)}
                         disabled={this.isDisabled(data.uniqueKey)}
-                        onChange={event =>
-                            this.togglePreSelectRow(data.uniqueKey)
-                        }
+                        onChange={event => this.toggleSelectRow(data.uniqueKey)}
                         labelProps={{
                             style: {
                                 display: 'flex',
@@ -587,8 +590,7 @@ export class MultiSelectionTable extends React.Component<
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     toggleModal(panelName: string) {
         this.modalSettings.modalOpen = !this.modalSettings.modalOpen;
         if (!this.modalSettings.modalOpen) {
@@ -597,8 +599,7 @@ export class MultiSelectionTable extends React.Component<
         this.modalSettings.modalPanelName = panelName;
     }
 
-    @autobind
-    @action
+    @action.bound
     closeModal() {
         this.modalSettings.modalOpen = !this.modalSettings.modalOpen;
     }
@@ -618,7 +619,7 @@ export class MultiSelectionTable extends React.Component<
 
     @computed get allSelectedRowsKeysSet() {
         return stringListToSet([
-            ...this.selectedRowsKeys,
+            ...this.props.selectedRowsKeys,
             ...this.preSelectedRowsKeys,
         ]);
     }
@@ -633,29 +634,36 @@ export class MultiSelectionTable extends React.Component<
         return _.some(this.preSelectedRowsKeys, key => key === uniqueKey);
     }
 
-    @autobind
-    @action
-    togglePreSelectRow(uniqueKey: string) {
-        const record = _.find(this.selectedRowsKeys, key => key === uniqueKey);
+    @action.bound
+    toggleSelectRow(uniqueKey: string) {
+        const record = _.find(
+            this.props.selectedRowsKeys,
+            key => key === uniqueKey
+        );
         if (_.isUndefined(record)) {
-            this.selectedRowsKeys.push(uniqueKey);
+            this.props.onChangeSelectedRows(
+                this.props.selectedRowsKeys.concat([uniqueKey])
+            );
         } else {
-            this.selectedRowsKeys = _.xorBy(this.selectedRowsKeys, [record]);
+            this.props.onChangeSelectedRows(
+                _.xorBy(this.props.selectedRowsKeys, [record])
+            );
         }
     }
     @observable private _selectionType: SelectionOperatorEnum;
 
-    @autobind
-    @action
+    @action.bound
     afterSelectingRows() {
         if (this.selectionType === SelectionOperatorEnum.UNION) {
-            this.props.onUserSelection([this.selectedRowsKeys]);
+            this.props.onSubmitSelection([this.props.selectedRowsKeys]);
         } else {
-            this.props.onUserSelection(
-                this.selectedRowsKeys.map(selectedRowsKey => [selectedRowsKey])
+            this.props.onSubmitSelection(
+                this.props.selectedRowsKeys.map(selectedRowsKey => [
+                    selectedRowsKey,
+                ])
             );
         }
-        this.selectedRowsKeys = [];
+        this.props.onChangeSelectedRows([]);
     }
 
     @computed get selectionType() {
@@ -676,8 +684,7 @@ export class MultiSelectionTable extends React.Component<
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     toggleSelectionOperator() {
         const selectionType = this._selectionType || this.selectionType;
         if (selectionType === SelectionOperatorEnum.INTERSECTION) {
@@ -719,8 +726,7 @@ export class MultiSelectionTable extends React.Component<
             : styles.highlightedOddRow;
     }
 
-    @autobind
-    @action
+    @action.bound
     afterSorting(
         sortBy: MultiSelectionTableColumnKey,
         sortDirection: SortDirection
@@ -743,12 +749,16 @@ export class MultiSelectionTable extends React.Component<
                         afterSelectingRows={this.afterSelectingRows}
                         defaultSelectionOperator={this.selectionType}
                         toggleSelectionOperator={this.toggleSelectionOperator}
+                        extraButtons={this.props.extraButtons}
                         sortBy={this.sortBy}
                         sortDirection={this.sortDirection}
                         afterSorting={this.afterSorting}
                         fixedTopRowsData={this.preSelectedRows}
                         highlightedRowClassName={this.selectedRowClassName}
-                        numberOfSelectedRows={this.selectedRowsKeys.length}
+                        showSetOperationsButton={true}
+                        numberOfSelectedRows={
+                            this.props.selectedRowsKeys.length
+                        }
                     />
                 )}
                 {this.props.genePanelCache ? (

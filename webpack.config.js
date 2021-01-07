@@ -121,6 +121,9 @@ var config = {
             styles: join(src, 'styles'),
             pages: join(src, 'pages'),
             shared: join(src, 'shared'),
+            pako: join(
+                path.join(__dirname + '/node_modules/pako/dist/pako.es5.js')
+            ),
             appConfig: path.join(
                 __dirname + '/src',
                 'config',
@@ -131,8 +134,9 @@ var config = {
 
     resolveLoader: {
         modules: [
-            path.resolve(__dirname, 'loaders'),
+            'node_modules',
             path.join(process.cwd(), 'node_modules'),
+            path.resolve(__dirname, 'loaders'),
         ],
     },
 

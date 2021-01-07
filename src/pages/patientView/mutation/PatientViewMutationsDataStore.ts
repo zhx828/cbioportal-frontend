@@ -1,6 +1,6 @@
 import { SimpleGetterLazyMobXTableApplicationDataStore } from '../../../shared/lib/ILazyMobXTableApplicationDataStore';
 import { Mutation } from 'cbioportal-ts-api-client';
-import { action, computed, observable } from 'mobx';
+import { action, computed, observable, makeObservable } from 'mobx';
 import _ from 'lodash';
 import PatientViewUrlWrapper from '../PatientViewUrlWrapper';
 
@@ -15,15 +15,13 @@ function mutationIdKey(m: Mutation) {
     return `{ "proteinChange": "${m.proteinChange}", "hugoGeneSymbol": "${m.gene.hugoGeneSymbol}" }`;
 }
 
+type MutationIdKey = string;
+
 export default class PatientViewMutationsDataStore extends SimpleGetterLazyMobXTableApplicationDataStore<
     Mutation[]
 > {
-    @observable.ref private mouseOverMutation: Readonly<Mutation> | null = null;
-    private selectedMutationsMap = observable.map<Mutation>();
-
-    public getMouseOverMutation() {
-        return this.mouseOverMutation;
-    }
+    @observable mouseOverMutation: Readonly<Mutation> | null = null;
+    private selectedMutationsMap = observable.map<string, Mutation>();
 
     public get onlyShowSelectedInTable() {
         return (
@@ -81,14 +79,14 @@ export default class PatientViewMutationsDataStore extends SimpleGetterLazyMobXT
     }
 
     @computed public get selectedMutations(): Readonly<Mutation[]> {
-        return this.selectedMutationsMap.entries().map(x => x[1]);
+        return Array.from(this.selectedMutationsMap.values());
     }
 
     public isMutationSelected(m: Mutation) {
         return this.selectedMutationsMap.has(mutationIdKey(m));
     }
 
-    @computed get sortedFilteredData() {
+    protected getSortedFilteredData = () => {
         const filterStringUpper = this.filterString.toUpperCase();
         const filterStringLower = this.filterString.toLowerCase();
         return this.sortedData.filter((d: Mutation[]) => {
@@ -107,13 +105,15 @@ export default class PatientViewMutationsDataStore extends SimpleGetterLazyMobXT
 
             return stringFilter && selectedFilter;
         });
-    }
+    };
 
     constructor(
         getData: () => Mutation[][],
         private urlWrapper: PatientViewUrlWrapper
     ) {
         super(getData);
+
+        makeObservable(this);
 
         this.dataHighlighter = (mergedMutation: Mutation[]) => {
             const highlightedMutations = [];

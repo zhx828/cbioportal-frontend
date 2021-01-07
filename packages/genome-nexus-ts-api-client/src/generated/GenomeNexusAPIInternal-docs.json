@@ -35,6 +35,10 @@
       "description": "Isoform Override Controller"
     },
     {
+      "name": "signal-query-controller",
+      "description": "Signal Query Controller"
+    },
+    {
       "name": "my-variant-info-controller",
       "description": "My Variant Info Controller"
     },
@@ -891,6 +895,49 @@
         }
       }
     },
+    "/signal/search": {
+      "get": {
+        "tags": [
+          "signal-query-controller"
+        ],
+        "summary": "Performs search by gene, protein change, variant or region.",
+        "operationId": "searchSignalByKeywordGETUsingGET",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "keyword",
+            "in": "query",
+            "description": "keyword. For example BRCA; BRAF V600; 13:32906640-32906640; 13:g.32890665G>A",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max number of matching results to return",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/SignalQuery"
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrefs/{accession}": {
       "get": {
         "tags": [
@@ -1376,6 +1423,19 @@
         }
       }
     },
+    "GeneralPopulationStats": {
+      "type": "object",
+      "properties": {
+        "counts": {
+          "description": "Counts",
+          "$ref": "#/definitions/SignalPopulationStats"
+        },
+        "frequencies": {
+          "description": "Frequencies",
+          "$ref": "#/definitions/SignalPopulationStats"
+        }
+      }
+    },
     "GenomicLocation": {
       "type": "object",
       "required": [
@@ -1571,6 +1631,26 @@
         "type": {
           "type": "string",
           "description": "Hotspot type"
+        }
+      }
+    },
+    "HrdScore": {
+      "type": "object",
+      "properties": {
+        "fractionLoh": {
+          "type": "number",
+          "format": "double",
+          "description": "Median HRD Fraction LOH"
+        },
+        "lst": {
+          "type": "number",
+          "format": "double",
+          "description": "Median HRD LST"
+        },
+        "ntelomericAi": {
+          "type": "number",
+          "format": "double",
+          "description": "Median HRD ntelomeric AI"
         }
       }
     },
@@ -1913,9 +1993,18 @@
           "format": "int64",
           "description": "End Position"
         },
+        "generalPopulationStats": {
+          "description": "General Population Stats",
+          "$ref": "#/definitions/GeneralPopulationStats"
+        },
         "hugoGeneSymbol": {
           "type": "string",
           "description": "Hugo Gene Symbol"
+        },
+        "mskExperReview": {
+          "type": "boolean",
+          "example": false,
+          "description": "Msk Expert Review"
         },
         "mutationStatus": {
           "type": "string",
@@ -1945,6 +2034,13 @@
           "format": "int64",
           "description": "Start Position"
         },
+        "statsByTumorType": {
+          "type": "array",
+          "description": "Stats By Tumor Type",
+          "items": {
+            "$ref": "#/definitions/StatsByTumorType"
+          }
+        },
         "variantAllele": {
           "type": "string",
           "description": "Variant Allele"
@@ -1963,12 +2059,139 @@
         }
       }
     },
+    "SignalPopulationStats": {
+      "type": "object",
+      "properties": {
+        "afr": {
+          "type": "number",
+          "format": "double",
+          "description": "African/African American"
+        },
+        "asj": {
+          "type": "number",
+          "format": "double",
+          "description": "Ashkenazi Jewish"
+        },
+        "asn": {
+          "type": "number",
+          "format": "double",
+          "description": "Asian"
+        },
+        "eur": {
+          "type": "number",
+          "format": "double",
+          "description": "European"
+        },
+        "impact": {
+          "type": "number",
+          "format": "double",
+          "description": "Impact"
+        },
+        "oth": {
+          "type": "number",
+          "format": "double",
+          "description": "Other"
+        }
+      }
+    },
+    "SignalQuery": {
+      "type": "object",
+      "properties": {
+        "alteration": {
+          "type": "string",
+          "description": "Matching Alteration (e.g: V600E)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional free-form text"
+        },
+        "hugoSymbol": {
+          "type": "string",
+          "description": "Matching Hugo Gene Symbol (e.g: BRCA2, BRAF)"
+        },
+        "matchType": {
+          "type": "string",
+          "description": "Match Type",
+          "enum": [
+            "EXACT",
+            "STARTS_WITH",
+            "PARTIAL",
+            "NO_MATCH"
+          ]
+        },
+        "queryType": {
+          "type": "string",
+          "description": "Query Type",
+          "enum": [
+            "GENE",
+            "ALTERATION",
+            "VARIANT",
+            "REGION"
+          ]
+        },
+        "region": {
+          "type": "string",
+          "description": "Matching Region (e.g: 13:32968940-32968940)"
+        },
+        "variant": {
+          "type": "string",
+          "description": "Matching HGVSG Variant (e.g: 17:g.37880220T>C)"
+        }
+      }
+    },
     "Snpeff": {
       "type": "object",
       "properties": {
         "license": {
           "type": "string",
           "description": "license"
+        }
+      }
+    },
+    "StatsByTumorType": {
+      "type": "object",
+      "properties": {
+        "ageAtDx": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Median Age at Dx"
+        },
+        "fBiallelic": {
+          "type": "number",
+          "format": "double",
+          "description": "Frequency Of Biallelic"
+        },
+        "fCancerTypeCount": {
+          "type": "number",
+          "format": "double",
+          "description": "Frequency Of Cancer Type Count"
+        },
+        "hrdScore": {
+          "description": "Hrd Score",
+          "$ref": "#/definitions/HrdScore"
+        },
+        "msiScore": {
+          "type": "number",
+          "format": "double",
+          "description": "Msi Score"
+        },
+        "nCancerTypeCount": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number Of Cancer Type Count"
+        },
+        "nwithSig": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "tmb": {
+          "type": "number",
+          "format": "double",
+          "description": "Median TMB"
+        },
+        "tumorType": {
+          "type": "string",
+          "description": "Tumor Type"
         }
       }
     },
@@ -2021,6 +2244,15 @@
           "type": "string",
           "description": "Hugo gene symbol"
         },
+        "polyphenPrediction": {
+          "type": "string",
+          "description": "Polyphen Prediction"
+        },
+        "polyphenScore": {
+          "type": "number",
+          "format": "double",
+          "description": "Polyphen Score"
+        },
         "proteinPosition": {
           "description": "Protein position (start and end)",
           "$ref": "#/definitions/IntegerRange"
@@ -2028,6 +2260,15 @@
         "refSeq": {
           "type": "string",
           "description": "RefSeq id"
+        },
+        "siftPrediction": {
+          "type": "string",
+          "description": "Sift Prediction"
+        },
+        "siftScore": {
+          "type": "number",
+          "format": "double",
+          "description": "Sift Score"
         },
         "transcriptId": {
           "type": "string",

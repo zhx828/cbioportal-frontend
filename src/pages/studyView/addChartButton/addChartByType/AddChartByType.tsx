@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { action, computed } from 'mobx';
+import { action, computed, makeObservable } from 'mobx';
 import { Observer, observer } from 'mobx-react';
 import styles from './styles.module.scss';
 import { ChartOption } from '../AddChartButton';
@@ -26,6 +26,7 @@ export interface IAddChartByTypeProps {
     onToggleOption: (key: string) => void;
     optionsGivenInSortedOrder?: boolean;
     frequencyHeaderTooltip?: string;
+    width?: number;
     firstColumnHeaderName?: string;
     hideControls?: boolean;
 }
@@ -39,9 +40,14 @@ export default class AddChartByType extends React.Component<
     IAddChartByTypeProps,
     {}
 > {
+    constructor(props: IAddChartByTypeProps) {
+        super(props);
+        makeObservable(this);
+    }
     public static defaultProps = {
         firstColumnHeaderName: 'Name',
         hideControls: false,
+        width: 400,
     };
 
     @computed
@@ -126,7 +132,7 @@ export default class AddChartByType extends React.Component<
             filter: (d: AddChartOption, f: string, filterStringUpper: string) =>
                 d.label.toUpperCase().includes(filterStringUpper),
             sortBy: (d: AddChartOption) => d.label,
-            width: 320,
+            width: this.props.width! - 80,
             defaultSortDirection: 'asc' as 'asc',
         },
         {
@@ -187,8 +193,7 @@ export default class AddChartByType extends React.Component<
         return this.getCurrentSelectedRows().map(option => option.key);
     }
 
-    @autobind
-    @action
+    @action.bound
     addAll(selectedOptions: AddChartOption[]) {
         this.props.onAddAll(
             _.filter(selectedOptions, option => !option.disabled).map(
@@ -197,14 +202,12 @@ export default class AddChartByType extends React.Component<
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     removeAll(selectedOptions: AddChartOption[]) {
         this.props.onClearAll(selectedOptions.map(option => option.key));
     }
 
-    @autobind
-    @action
+    @action.bound
     onOptionChange(option: AddChartOption) {
         this.props.onToggleOption(option.key);
     }
@@ -217,7 +220,7 @@ export default class AddChartByType extends React.Component<
             >
                 {this.props.freqPromise.isComplete && (
                     <AddChartTableComponent
-                        width={380}
+                        width={this.props.width! - 20}
                         height={this.tableHeight}
                         columns={this._columns}
                         data={this.options}
@@ -225,10 +228,10 @@ export default class AddChartByType extends React.Component<
                         addAll={this.addAll}
                         removeAll={this.removeAll}
                         showSelectableNumber={true}
-                        showAddRemoveAllButtons={true}
+                        showAddRemoveAllButton={true}
                         autoFocusSearchAfterRendering={true}
-                        removeAllDisabled={
-                            !_.some(this.options, o => o.selected)
+                        numberOfSelectedRows={
+                            this.getCurrentSelectedRows().length
                         }
                         hideControls={this.props.hideControls}
                     />

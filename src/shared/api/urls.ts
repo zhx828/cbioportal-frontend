@@ -140,7 +140,7 @@ export function getPatientViewUrl(
 }
 
 export function getComparisonUrl(params: Partial<GroupComparisonURLQuery>) {
-    return buildCBioPortalPageUrl('comparison', params);
+    return buildCBioPortalPageUrl('/comparison', params);
 }
 
 export function redirectToComparisonPage(
@@ -155,7 +155,7 @@ export function redirectToComparisonPage(
 export function getComparisonLoadingUrl(
     params?: Partial<GroupComparisonLoadingParams>
 ) {
-    return buildCBioPortalPageUrl('loading/comparison', params || {});
+    return buildCBioPortalPageUrl('/loading/comparison', params || {});
 }
 
 export function getPubMedUrl(pmid: string) {
@@ -323,9 +323,7 @@ export function getDarwinUrl(sampleIds: string[], caseId: string) {
 }
 
 export function getStudyDownloadListUrl() {
-    return buildCBioPortalAPIUrl(
-        'proxy/download.cbioportal.org/study_list.json'
-    );
+    return 'https://cbioportal-datahub.s3.amazonaws.com/study_list.json';
 }
 
 export function getMDAndersonHeatmapPatientUrl(patientId: string) {

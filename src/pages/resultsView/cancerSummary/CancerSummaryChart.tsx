@@ -15,7 +15,7 @@ import {
     IAlterationData,
     ICancerSummaryChartData,
 } from './CancerSummaryContent';
-import { observable, computed, action } from 'mobx';
+import { observable, computed, action, makeObservable } from 'mobx';
 import { observer, Observer } from 'mobx-react';
 import { CSSProperties } from 'react';
 import autobind from 'autobind-decorator';
@@ -124,16 +124,15 @@ export class CancerSummaryChart extends React.Component<
 
     constructor(props: CancerSummaryChartProps) {
         super(props);
+        makeObservable(this);
     }
 
-    @autobind
-    @action
+    @action.bound
     private tooltipMouseEnter(): void {
         this.isBarPlotTooltipHovered = true;
     }
 
-    @autobind
-    @action
+    @action.bound
     private tooltipMouseLeave(): void {
         this.isBarPlotTooltipHovered = false;
         this.barPlotTooltipModel = null;
@@ -145,9 +144,9 @@ export class CancerSummaryChart extends React.Component<
         } else {
             const profiledCount = this.scatterPlotTooltipModel.datum
                 .profiledCount as number;
-            let tooltopMessage = 'Not profiled';
+            let tooltipMessage = 'Not profiled';
             if (profiledCount > 0) {
-                tooltopMessage = `${profiledCount} ${pluralize(
+                tooltipMessage = `${profiledCount} ${pluralize(
                     'sample',
                     profiledCount
                 )}  profiled`;
@@ -177,7 +176,7 @@ export class CancerSummaryChart extends React.Component<
                     }}
                     placement={tooltipPlacement}
                 >
-                    <div style={{ whiteSpace: 'normal' }}>{tooltopMessage}</div>
+                    <div style={{ whiteSpace: 'normal' }}>{tooltipMessage}</div>
                 </Popover>,
                 document.body
             );
@@ -348,8 +347,7 @@ export class CancerSummaryChart extends React.Component<
         });
     }
 
-    @autobind
-    @action
+    @action.bound
     private onMouseMove(e: React.MouseEvent<any>) {
         if (this.shouldUpdatePosition) {
             this.mousePosition.x = e.pageX;
@@ -527,6 +525,26 @@ export class CancerSummaryChart extends React.Component<
                                 target: 'data',
                                 mutation: () => {
                                     self.scatterPlotTooltipModel = null;
+                                },
+                            },
+                        ];
+                    },
+                    onMouseEnter: () => {
+                        return [
+                            {
+                                target: 'data',
+                                mutation: () => {
+                                    self.shouldUpdatePosition = true;
+                                },
+                            },
+                        ];
+                    },
+                    onMouseLeave: () => {
+                        return [
+                            {
+                                target: 'data',
+                                mutation: () => {
+                                    self.shouldUpdatePosition = false;
                                 },
                             },
                         ];

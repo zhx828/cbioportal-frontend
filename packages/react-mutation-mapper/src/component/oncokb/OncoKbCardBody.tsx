@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { observer } from 'mobx-react';
-import { computed, observable } from 'mobx';
+import { observable, computed, makeObservable } from 'mobx';
 import classnames from 'classnames';
-
 import tabsStyles from './tabs.module.scss';
 import OncoKbCardLevelsOfEvidenceDropdown from './OncoKbCardLevelsOfEvidenceDropdown';
 import mainStyles from './main.module.scss';

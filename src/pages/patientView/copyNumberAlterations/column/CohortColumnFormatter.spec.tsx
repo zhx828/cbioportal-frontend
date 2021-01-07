@@ -29,6 +29,10 @@ describe('CohortColumnFormatter', () => {
             studyId: 'STUDY1',
             uniquePatientKey: '',
             uniqueSampleKey: '',
+            driverFilter: '',
+            driverFilterAnnotation: '',
+            driverTiersFilter: '',
+            driverTiersFilterAnnotation: '',
         },
         {
             alteration: 2,
@@ -45,6 +49,10 @@ describe('CohortColumnFormatter', () => {
             studyId: 'STUDY1',
             uniquePatientKey: '',
             uniqueSampleKey: '',
+            driverFilter: '',
+            driverFilterAnnotation: '',
+            driverTiersFilter: '',
+            driverTiersFilterAnnotation: '',
         },
     ];
 
@@ -135,11 +143,11 @@ describe('CohortColumnFormatter', () => {
     it('generates the tooltip text properly', () => {
         assert.equal(
             tooltips[0].text(),
-            '61 samples (61.0%) in this study have deleted BRCA2'
+            '61 samples (61%) in this study have deleted BRCA2'
         );
         assert.equal(
             tooltips[1].text(),
-            '1 sample (0.5%) in this study has amplified SMURF2'
+            '1 sample (<1%) in this study has amplified SMURF2'
         );
     });
 
@@ -189,6 +197,4 @@ describe('CohortColumnFormatter', () => {
         assert.equal(qValue, 0.00045);
         assert.equal(count, 4);
     });
-
-    after(() => {});
 });

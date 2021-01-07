@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { computed } from 'mobx';
+import { computed, makeObservable } from 'mobx';
 import { observer, Observer } from 'mobx-react';
 import { MolecularProfile } from 'cbioportal-ts-api-client';
 import { GeneticEntity } from '../ResultsViewPageStore';
@@ -8,10 +8,15 @@ import './styles.scss';
 import { bind } from 'bind-decorator';
 import ScatterPlot from '../../../shared/components/plots/ScatterPlot';
 import { DownloadControls } from 'cbioportal-frontend-commons';
-import { axisLabel, isNotProfiled } from './CoExpressionPlotUtils';
+import {
+    axisLabel,
+    getDownloadData,
+    isNotProfiled,
+} from './CoExpressionPlotUtils';
 import _ from 'lodash';
 import { scatterPlotSize } from '../../../shared/components/plots/PlotUtils';
 import { IAxisLogScaleParams } from 'pages/resultsView/plots/PlotsTabUtils';
+import autobind from 'autobind-decorator';
 
 export interface ICoExpressionPlotProps {
     xAxisGeneticEntity: GeneticEntity;
@@ -68,6 +73,11 @@ export default class CoExpressionPlot extends React.Component<
     ICoExpressionPlotProps,
     {}
 > {
+    constructor(props: ICoExpressionPlotProps) {
+        super(props);
+        makeObservable(this);
+    }
+
     @bind
     private getSvg() {
         return document.getElementById(SVG_ID) as SVGElement | null;
@@ -333,12 +343,26 @@ export default class CoExpressionPlot extends React.Component<
 
                 <DownloadControls
                     getSvg={this.getSvg}
+                    getData={this.getDownloadData}
+                    buttons={['SVG', 'PNG', 'PDF', 'Data']}
                     filename="coexpression"
                     dontFade={true}
                     type="button"
                     style={{ position: 'absolute', top: 0, right: 0 }}
                 />
             </div>
+        );
+    }
+
+    @autobind
+    private getDownloadData() {
+        return getDownloadData(
+            this.props.data,
+            this.props.xAxisGeneticEntity,
+            this.props.yAxisGeneticEntity,
+            this.props.molecularProfileX,
+            this.props.molecularProfileY,
+            !!this.props.showMutations
         );
     }
 

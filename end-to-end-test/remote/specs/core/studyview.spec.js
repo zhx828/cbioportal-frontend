@@ -35,6 +35,8 @@ const ADD_CHART_GENOMIC_TAB = '.addChartTabs a.tabAnchor_Genomic';
 const ADD_CHART_CUSTOM_DATA_TAB = '.addChartTabs a.tabAnchor_Custom_Data';
 const ADD_CHART_CUSTOM_GROUPS_ADD_CHART_BUTTON =
     "[data-test='CustomCaseSetSubmitButton']";
+const ADD_CHART_GENERIC_ASSAY_TAB =
+    '.addChartTabs a.tabAnchor_MICROBIOME_SIGNATURE';
 const ADD_CHART_CUSTOM_GROUPS_TEXTAREA = "[data-test='CustomCaseSetInput']";
 const STUDY_SUMMARY_RAW_DATA_DOWNLOAD =
     "[data-test='studySummaryRawDataDownloadIcon']";
@@ -277,6 +279,7 @@ describe('check the filters are working properly', () => {
         waitForNetworkQuiet(60000);
     });
     it('filter study from url', function() {
+        waitForNetworkQuiet(60000);
         const res = checkElementWithMouseDisabled('#mainColumn');
         assertScreenShotMatch(res);
     });
@@ -419,8 +422,8 @@ describe('crc_msk_2017 study tests', () => {
         browser.waitForVisible(ADD_CHART_BUTTON, WAIT_FOR_VISIBLE_TIMEOUT);
         browser.click(ADD_CHART_BUTTON);
 
-        browser.waitForVisible(
-            "[data-test='chart-container-MSI_SCORE']",
+        browser.waitForExist(
+            "[data-test='chart-container-MSI_SCORE'] svg",
             WAIT_FOR_VISIBLE_TIMEOUT
         );
 
@@ -529,6 +532,16 @@ describe('study view lgg_tcga study tests', () => {
                 assertScreenShotMatch(res);
             });
         });
+    });
+});
+
+describe('virtual study', () => {
+    it('loads a virtual study', () => {
+        const url = `${CBIOPORTAL_URL}/study/summary?id=5dd408f0e4b0f7d2de7862a8`;
+        goToUrlAndSetLocalStorage(url);
+        waitForNetworkQuiet();
+        browser.pause(1000);
+        assertScreenShotMatch(checkElementWithMouseDisabled('#mainColumn'));
     });
 });
 
@@ -687,5 +700,46 @@ describe('submit genes to results view query', () => {
             query.genetic_profile_ids_PROFILE_MRNA_EXPRESSION,
             'acc_tcga_pan_can_atlas_2018_rna_seq_v2_mrna_median_Zscores'
         );
+    });
+
+    describe('chol_tcga_pan_can_atlas_2018 study generic assay tests', () => {
+        before(() => {
+            const url = `${CBIOPORTAL_URL}/study?id=chol_tcga_pan_can_atlas_2018`;
+            goToUrlAndSetLocalStorage(url);
+            waitForNetworkQuiet();
+        });
+        it('generic assay chart should be added in the summary tab', () => {
+            browser.waitForVisible(ADD_CHART_BUTTON, WAIT_FOR_VISIBLE_TIMEOUT);
+            browser.click(ADD_CHART_BUTTON);
+
+            waitForNetworkQuiet();
+
+            // Change to GENERIC ASSAY tab
+            browser.waitForVisible(
+                ADD_CHART_GENERIC_ASSAY_TAB,
+                WAIT_FOR_VISIBLE_TIMEOUT
+            );
+            browser.click(ADD_CHART_GENERIC_ASSAY_TAB);
+
+            // wait for generic assay data loading complete
+            // and select a option
+            $('div[data-test="GenericAssaySelection"]').waitForExist();
+            $('div[data-test="GenericAssaySelection"] input').setValue(
+                'Prasinovirus'
+            );
+            $('div=Select all filtered options (1)').click();
+            // close the dropdown
+            var indicators = $$('div[class$="indicatorContainer"]');
+            indicators[0].click();
+            var selectedOptions = $$('div[class$="multiValue"]');
+            assert.equal(selectedOptions.length, 1);
+
+            $('button=Add Chart').click();
+            // Wait for chart to be added
+            waitForNetworkQuiet();
+
+            const res = checkElementWithMouseDisabled('#mainColumn');
+            assertScreenShotMatch(res);
+        });
     });
 });

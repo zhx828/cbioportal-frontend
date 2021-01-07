@@ -3,29 +3,35 @@ import $ from 'jquery';
 import {
     fetchVariantAnnotationsByMutation as fetchDefaultVariantAnnotationsByMutation,
     fetchVariantAnnotationsIndexedByGenomicLocation as fetchDefaultVariantAnnotationsIndexedByGenomicLocation,
+    OtherBiomarkersQueryType,
 } from 'react-mutation-mapper';
 import {
     CancerStudy,
+    CBioPortalAPI,
+    CBioPortalAPIInternal,
+    ClinicalAttribute,
     ClinicalData,
     ClinicalDataMultiStudyFilter,
     ClinicalDataSingleStudyFilter,
     CopyNumberCountIdentifier,
     CopyNumberSeg,
-    CBioPortalAPI,
+    CosmicMutation,
     DiscreteCopyNumberData,
     DiscreteCopyNumberFilter,
     Gene,
     GenePanel,
     GenePanelData,
     GenePanelDataFilter,
+    Gistic,
+    GisticToGene,
     MolecularProfile,
     Mutation,
     MutationFilter,
+    MutSig,
     NumericGeneMolecularData,
     ReferenceGenomeGene,
     Sample,
     SampleFilter,
-    ClinicalAttribute,
 } from 'cbioportal-ts-api-client';
 import defaultClient from 'shared/api/cbioportalClientInstance';
 import client from 'shared/api/cbioportalClientInstance';
@@ -37,13 +43,6 @@ import {
     Genome2StructureAPI,
     GenomeNexusAPI,
 } from 'genome-nexus-ts-api-client';
-import {
-    CosmicMutation,
-    CBioPortalAPIInternal,
-    Gistic,
-    GisticToGene,
-    MutSig,
-} from 'cbioportal-ts-api-client';
 import oncokbClient from 'shared/api/oncokbClientInstance';
 import genomeNexusClient from 'shared/api/genomeNexusClientInstance';
 import {
@@ -52,7 +51,10 @@ import {
     generateCopyNumberAlterationQuery,
     generateIdToIndicatorMap,
     generateProteinChangeQuery,
+    generateQueryVariantId,
+    IHotspotIndex,
     IOncoKbData,
+    isLinearClusterHotspot,
 } from 'cbioportal-utils';
 import { getAlterationString } from 'shared/lib/CopyNumberUtils';
 import { MobxPromise } from 'mobxpromise';
@@ -61,33 +63,46 @@ import { indexPdbAlignments } from 'shared/lib/PdbUtils';
 import { IGisticData } from 'shared/model/Gistic';
 import { IMutSigData } from 'shared/model/MutSig';
 import {
-    IMutationalSignature,
-    IMutationalSignatureMeta,
-} from 'shared/model/MutationalSignature';
-import {
+    CLINICAL_ATTRIBUTE_ID_ENUM,
     MOLECULAR_PROFILE_MUTATIONS_SUFFIX,
     MOLECULAR_PROFILE_UNCALLED_MUTATIONS_SUFFIX,
 } from 'shared/constants';
-import { AlterationTypeConstants } from '../../pages/resultsView/ResultsViewPageStore';
+import {
+    AlterationTypeConstants,
+    AnnotatedMutation,
+    AnnotatedNumericGeneMolecularData,
+    CustomDriverNumericGeneMolecularData,
+} from '../../pages/resultsView/ResultsViewPageStore';
 import { normalizeMutations } from '../components/mutationMapper/MutationMapperUtils';
 import AppConfig from 'appConfig';
 import { getFrontendAssetUrl } from 'shared/api/urls';
 import {
     AnnotateCopyNumberAlterationQuery,
-    IndicatorQueryResp,
     CancerGene,
+    IndicatorQueryResp,
     OncoKbAPI,
     OncoKBInfo,
 } from 'oncokb-ts-api-client';
 import { REFERENCE_GENOME } from './referenceGenomeUtils';
 import {
-    DEFAULT_SURVIVAL_PRIORITY,
     getSurvivalAttributes,
-    plotsPriority,
+    RESERVED_SURVIVAL_PLOT_PRIORITY,
 } from '../../pages/resultsView/survival/SurvivalUtil';
 import request from 'superagent';
-import { Alteration, MUTCommand, SingleGeneQuery } from './oql/oql-parser';
-import { CUSTOM_CASE_LIST_ID } from '../components/query/QueryStore';
+import { MUTCommand, SingleGeneQuery } from './oql/oql-parser';
+import {
+    annotateMolecularDatum,
+    annotateMutationPutativeDriver,
+    FilteredAndAnnotatedDiscreteCNAReport,
+    FilteredAndAnnotatedMutationsReport,
+    ONCOKB_ONCOGENIC_LOWERCASE,
+} from 'pages/resultsView/ResultsViewPageStoreUtils';
+import { ASCNAttributes } from 'shared/enums/ASCNEnums';
+import {
+    hasASCNProperty,
+    isNotGermlineMutation,
+} from 'shared/lib/MutationUtils';
+import { ObservableMap } from 'mobx';
 
 export const ONCOKB_DEFAULT: IOncoKbData = {
     indicatorMap: {},
@@ -693,14 +708,6 @@ export async function fetchGenePanel(
     return _.keyBy(remoteData, genePanel => genePanel.genePanelId);
 }
 
-export function fetchMutationalSignatureData(): IMutationalSignature[] {
-    return require('../../../resources/samplemutsigdata.json');
-}
-
-export function fetchMutationalSignatureMetaData(): IMutationalSignatureMeta[] {
-    return require('../../../resources/mutsigmetadata.json');
-}
-
 export async function fetchOncoKbCancerGenes(
     client: OncoKbAPI = oncokbClient
 ): Promise<CancerGene[]> {
@@ -791,39 +798,27 @@ export async function fetchCnaOncoKbData(
 export async function fetchCnaOncoKbDataWithNumericGeneMolecularData(
     uniqueSampleKeyToTumorType: { [uniqueSampleKey: string]: string },
     annotatedGenes: { [entrezGeneId: number]: boolean },
-    geneMolecularData: MobxPromise<NumericGeneMolecularData[]>,
-    molecularProfileIdToMolecularProfile: {
-        [molecularProfileId: string]: MolecularProfile;
-    },
+    cnaMolecularData: MobxPromise<NumericGeneMolecularData[]>,
     evidenceTypes?: string,
     client: OncoKbAPI = oncokbClient
 ) {
-    if (!geneMolecularData.result || geneMolecularData.result.length === 0) {
+    if (!cnaMolecularData.result || cnaMolecularData.result.length === 0) {
         return ONCOKB_DEFAULT;
     } else {
-        const alterationsToQuery = _.filter(
-            geneMolecularData.result,
-            molecularDatum => {
-                return (
-                    molecularProfileIdToMolecularProfile[
-                        molecularDatum.molecularProfileId
-                    ].molecularAlterationType ===
-                        AlterationTypeConstants.COPY_NUMBER_ALTERATION &&
-                    !!annotatedGenes[molecularDatum.entrezGeneId]
-                );
-            }
-        );
         const queryVariants = _.uniqBy(
-            _.map(alterationsToQuery, (datum: NumericGeneMolecularData) => {
-                return generateCopyNumberAlterationQuery(
-                    datum.entrezGeneId,
-                    cancerTypeForOncoKb(
-                        datum.uniqueSampleKey,
-                        uniqueSampleKeyToTumorType
-                    ),
-                    getAlterationString(datum.value)
-                );
-            }).filter(query => query.copyNameAlterationType),
+            _.map(
+                cnaMolecularData.result!,
+                (datum: NumericGeneMolecularData) => {
+                    return generateCopyNumberAlterationQuery(
+                        datum.entrezGeneId,
+                        cancerTypeForOncoKb(
+                            datum.uniqueSampleKey,
+                            uniqueSampleKeyToTumorType
+                        ),
+                        getAlterationString(datum.value)
+                    );
+                }
+            ).filter(query => query.copyNameAlterationType),
             (query: AnnotateCopyNumberAlterationQuery) => query.id
         );
         return queryOncoKbCopyNumberAlterationData(queryVariants, client);
@@ -955,18 +950,22 @@ export async function fetchDiscreteCNAData(
     }
 }
 
-export function findMolecularProfileIdDiscrete(
+export function findDiscreteMolecularProfile(
     molecularProfilesInStudy: MobxPromise<MolecularProfile[]>
 ) {
     if (!molecularProfilesInStudy.result) {
         return undefined;
     }
 
-    const profile = molecularProfilesInStudy.result.find(
-        (p: MolecularProfile) => {
-            return p.datatype === 'DISCRETE';
-        }
-    );
+    return molecularProfilesInStudy.result.find((p: MolecularProfile) => {
+        return p.datatype === 'DISCRETE';
+    });
+}
+
+export function findMolecularProfileIdDiscrete(
+    molecularProfilesInStudy: MobxPromise<MolecularProfile[]>
+) {
+    const profile = findDiscreteMolecularProfile(molecularProfilesInStudy);
 
     return profile ? profile.molecularProfileId : undefined;
 }
@@ -1194,6 +1193,47 @@ export function generateMutationIdByGeneAndProteinChangeAndEvent(
     ].join('_');
 }
 
+/** scan a collection of Mutations to see if any contain values for ASCN fields/properties
+ *
+ * all mutations (whether passed as a simple array or as an array of array)
+ * are scanned (once per known ASCN field/property) to see whether any mutation can be found
+ * which has a (non-empty) value defined for the field. A map from field name to boolean
+ * result is returned.
+ *
+ * @param mutations - a union type (either array of Mutation or array of array of Mutation)
+ * @returns Object/Dictionary with key from {ASCN_field_names} and boolean value per key
+ */
+export function existsSomeMutationWithAscnPropertyInCollection(
+    mutations: Mutation[] | Mutation[][]
+): {
+    [property: string]: boolean;
+} {
+    const existsSomeMutationWithAscnPropertyMap: {
+        [property: string]: boolean;
+    } = {};
+    for (let p of Object.values(ASCNAttributes)) {
+        if (mutations.length == 0) {
+            existsSomeMutationWithAscnPropertyMap[p] = false;
+            continue;
+        }
+        existsSomeMutationWithAscnPropertyMap[p] = _.some(
+            mutations,
+            mutationElement => {
+                if (mutationElement.hasOwnProperty('variantAllele')) {
+                    // element is a single mutation
+                    return hasASCNProperty(mutationElement as Mutation, p);
+                } else {
+                    // element is a mutation array
+                    return _.some(mutationElement as Mutation[], m => {
+                        return hasASCNProperty(m, p);
+                    });
+                }
+            }
+        );
+    }
+    return existsSomeMutationWithAscnPropertyMap;
+}
+
 export function generateDataQueryFilter(
     sampleListId: string | null,
     sampleIds?: string[]
@@ -1235,6 +1275,19 @@ export function groupBySampleId(
             (cd: ClinicalData) => cd.sampleId === k
         ),
     }));
+}
+
+export function mapSampleIdToClinicalData(
+    clinicalDataGroupedBySampleId: Array<{
+        id: string;
+        clinicalData: ClinicalData[];
+    }>
+) {
+    const sampleIdToClinicalDataMap = _.chain(clinicalDataGroupedBySampleId)
+        .keyBy('id')
+        .mapValues(o => o.clinicalData)
+        .value();
+    return sampleIdToClinicalDataMap;
 }
 
 export function groupBy<T>(
@@ -1312,8 +1365,27 @@ export function getSurvivalClinicalAttributesPrefix(
         [] as string[]
     );
     // change prefix order based on priority
-    return _.sortBy(attributePrefixes, prefix => {
-        return plotsPriority[prefix] || DEFAULT_SURVIVAL_PRIORITY;
+    // determine priority by using survival status priority
+    const statusAttributes = _.filter(clinicalAttributes, attribute =>
+        /_STATUS$/i.test(attribute.clinicalAttributeId)
+    );
+    const priorityByPrefix = _.chain(statusAttributes)
+        .keyBy(attribute =>
+            attribute.clinicalAttributeId.substring(
+                0,
+                attribute.clinicalAttributeId.indexOf('_STATUS')
+            )
+        )
+        .mapValues(attribute => Number(attribute.priority))
+        .value();
+
+    // return attribute prefixes by desc order based on priority
+    return attributePrefixes.sort((attr1, attr2) => {
+        const attr1Priority =
+            RESERVED_SURVIVAL_PLOT_PRIORITY[attr1] || priorityByPrefix[attr1];
+        const attr2Priority =
+            RESERVED_SURVIVAL_PLOT_PRIORITY[attr2] || priorityByPrefix[attr2];
+        return attr2Priority - attr1Priority;
     });
 }
 
@@ -1414,4 +1486,411 @@ export function getDefaultProfilesForOql(profiles: MolecularProfile[]) {
                 );
             })
     );
+}
+
+export function makeIsHotspotForOncoprint(
+    remoteData: MobxPromise<IHotspotIndex | undefined>
+): Promise<((m: Mutation) => boolean) | Error> {
+    // have to do it like this so that an error doesnt cause chain reaction of errors and app crash
+    if (remoteData.isComplete) {
+        const indexedHotspotData = remoteData.result;
+        if (indexedHotspotData) {
+            return Promise.resolve((mutation: Mutation) => {
+                return isLinearClusterHotspot(mutation, indexedHotspotData);
+            });
+        } else {
+            return Promise.resolve(
+                ((mutation: Mutation) => false) as (m: Mutation) => boolean
+            );
+        }
+    } else if (remoteData.isError) {
+        return Promise.resolve(new Error());
+    } else {
+        // pending: return endless promise to keep isHotspotForOncoprint pending
+        return new Promise(() => {});
+    }
+}
+
+export async function fetchOncoKbDataForOncoprint(
+    oncoKbAnnotatedGenes: MobxPromise<
+        { [entrezGeneId: number]: boolean } | Error
+    >,
+    mutations: MobxPromise<Mutation[]>
+) {
+    if (AppConfig.serverConfig.show_oncokb) {
+        let result;
+        try {
+            result = await fetchOncoKbData(
+                {},
+                oncoKbAnnotatedGenes.result!,
+                mutations,
+                'ONCOGENIC'
+            );
+        } catch (e) {
+            result = new Error();
+        }
+        return result;
+    } else {
+        return ONCOKB_DEFAULT;
+    }
+}
+
+export async function fetchCnaOncoKbDataForOncoprint(
+    oncoKbAnnotatedGenes: MobxPromise<{ [entrezGeneId: number]: boolean }>,
+    cnaMolecularData: MobxPromise<NumericGeneMolecularData[]>
+) {
+    if (AppConfig.serverConfig.show_oncokb) {
+        let result;
+        try {
+            result = await fetchCnaOncoKbDataWithNumericGeneMolecularData(
+                {},
+                oncoKbAnnotatedGenes.result!,
+                cnaMolecularData,
+                'ONCOGENIC'
+            );
+        } catch (e) {
+            result = new Error();
+        }
+        return result;
+    } else {
+        return ONCOKB_DEFAULT;
+    }
+}
+
+export function makeGetOncoKbMutationAnnotationForOncoprint(
+    remoteData: MobxPromise<IOncoKbData | Error>
+) {
+    const oncoKbDataForOncoprint = remoteData.result!;
+    if (oncoKbDataForOncoprint instanceof Error) {
+        return Promise.resolve(new Error());
+    } else {
+        return Promise.resolve((mutation: Mutation) => {
+            const uniqueSampleKeyToTumorType = {};
+            const id = generateQueryVariantId(
+                mutation.entrezGeneId,
+                cancerTypeForOncoKb(
+                    mutation.uniqueSampleKey,
+                    uniqueSampleKeyToTumorType
+                ),
+                mutation.proteinChange,
+                mutation.mutationType
+            );
+            return oncoKbDataForOncoprint.indicatorMap![id];
+        });
+    }
+}
+
+export function makeGetOncoKbCnaAnnotationForOncoprint(
+    remoteData: MobxPromise<IOncoKbData | Error>,
+    oncoKb: boolean
+) {
+    const cnaOncoKbDataForOncoprint = remoteData.result!;
+    if (cnaOncoKbDataForOncoprint instanceof Error) {
+        return Promise.resolve(new Error());
+    } else {
+        return Promise.resolve((data: NumericGeneMolecularData) => {
+            if (oncoKb) {
+                const uniqueSampleKeyToTumorType = {};
+                const id = generateQueryVariantId(
+                    data.entrezGeneId,
+                    cancerTypeForOncoKb(
+                        data.uniqueSampleKey,
+                        uniqueSampleKeyToTumorType
+                    ),
+                    getAlterationString(data.value)
+                );
+                return cnaOncoKbDataForOncoprint.indicatorMap![id];
+            } else {
+                return undefined;
+            }
+        });
+    }
+}
+
+export function getSampleClinicalDataMapByThreshold(
+    clinicalData: ClinicalData[],
+    clinicalAttributeId: string,
+    threshold: number
+) {
+    return _.reduce(
+        clinicalData,
+        (acc, next) => {
+            if (next.clinicalAttributeId === clinicalAttributeId) {
+                const value = getNumericalClinicalDataValue(next);
+                if (value && value >= threshold) {
+                    acc[next.sampleId] = next;
+                }
+            }
+            return acc;
+        },
+        {} as { [key: string]: ClinicalData }
+    );
+}
+
+export function getNumericalClinicalDataValue(
+    clinicalData: ClinicalData
+): number | undefined {
+    if (Number.isNaN(clinicalData.value)) {
+        return undefined;
+    } else {
+        return Number(clinicalData.value);
+    }
+}
+
+export function getSampleNumericalClinicalDataValue(
+    clinicalData: ClinicalData[],
+    sampleId: string,
+    clinicalAttributeId: string
+): number | undefined {
+    const sampleMsiData = clinicalData.find(
+        clinical =>
+            clinical.clinicalAttributeId === clinicalAttributeId &&
+            clinical.sampleId === sampleId
+    );
+    if (sampleMsiData) {
+        return getNumericalClinicalDataValue(sampleMsiData);
+    }
+    return undefined;
+}
+
+export type SampleCancerTypeMap = {
+    cancerType: string | undefined;
+    cancerTypeDetailed: string | undefined;
+    studyCancerType: string | undefined;
+};
+
+export type OtherBiomarkerQueryId = {
+    sampleId: string;
+    type: OtherBiomarkersQueryType;
+};
+
+export const OTHER_BIOMARKERS_CLINICAL_ATTR: {
+    [key in OtherBiomarkersQueryType]: string;
+} = {
+    [OtherBiomarkersQueryType.MSIH]: CLINICAL_ATTRIBUTE_ID_ENUM.MSI_SCORE,
+    [OtherBiomarkersQueryType.TMBH]: CLINICAL_ATTRIBUTE_ID_ENUM.TMB_SCORE,
+};
+
+export const OTHER_BIOMARKERS_QUERY_ID_SEPARATOR = '-&-';
+
+export function getOtherBiomarkersQueryId(query: OtherBiomarkerQueryId) {
+    return query.sampleId + OTHER_BIOMARKERS_QUERY_ID_SEPARATOR + query.type;
+}
+
+// Follow the format from method getOtherBiomarkersQueryId
+export function parseOtherBiomarkerQueryId(
+    queryId: string
+): OtherBiomarkerQueryId {
+    const queryIdParts = queryId.split(OTHER_BIOMARKERS_QUERY_ID_SEPARATOR);
+    return {
+        sampleId: queryIdParts[0],
+        type: queryIdParts[1],
+    } as OtherBiomarkerQueryId;
+}
+
+export function getSampleTumorTypeMap(
+    sampleClinicalData: ClinicalData[],
+    studyCancerType: string | undefined
+): SampleCancerTypeMap {
+    const cancerType = sampleClinicalData.find(
+        attr =>
+            attr.clinicalAttributeId === CLINICAL_ATTRIBUTE_ID_ENUM.CANCER_TYPE
+    );
+    const cancerTypeDetailed = sampleClinicalData.find(
+        attr =>
+            attr.clinicalAttributeId ===
+            CLINICAL_ATTRIBUTE_ID_ENUM.CANCER_TYPE_DETAILED
+    );
+    return {
+        cancerType: cancerType?.value,
+        cancerTypeDetailed: cancerTypeDetailed?.value,
+        studyCancerType,
+    };
+}
+
+export function tumorTypeResolver(cancerTypeMap: SampleCancerTypeMap) {
+    return (
+        cancerTypeMap?.cancerTypeDetailed ||
+        cancerTypeMap?.cancerType ||
+        cancerTypeMap?.studyCancerType
+    );
+}
+
+export const PUTATIVE_DRIVER = 'Putative_Driver';
+export const PUTATIVE_PASSENGER = 'Putative_Passenger';
+
+export function getOncoKbOncogenic(response: IndicatorQueryResp): string {
+    if (
+        ONCOKB_ONCOGENIC_LOWERCASE.indexOf(
+            (response.oncogenic || '').toLowerCase()
+        ) > -1
+    ) {
+        return response.oncogenic;
+    } else {
+        return '';
+    }
+}
+
+export function evaluateDiscreteCNAPutativeDriverInfo(
+    cnaDatum: CustomDriverNumericGeneMolecularData,
+    oncoKbDatum: IndicatorQueryResp | undefined | null | false,
+    customDriverAnnotationsActive: boolean,
+    customDriverTierSelection: ObservableMap<string, boolean> | undefined
+) {
+    const oncoKb = oncoKbDatum ? getOncoKbOncogenic(oncoKbDatum) : '';
+
+    // Set driverFilter to true when:
+    // (1) custom drivers active in settings menu
+    // (2) the datum has a custom driver annotation
+    const customDriverBinary: boolean =
+        (customDriverAnnotationsActive &&
+            cnaDatum.driverFilter === PUTATIVE_DRIVER) ||
+        false;
+
+    // Set tier information to the tier name when the tiers checkbox
+    // is selected for the corresponding tier of the datum in settings menu.
+    // This forces the CNA to be counted as a driver mutation.
+    const customDriverTier: string | undefined =
+        cnaDatum.driverTiersFilter &&
+        customDriverTierSelection &&
+        customDriverTierSelection.get(cnaDatum.driverTiersFilter)
+            ? cnaDatum.driverTiersFilter
+            : undefined;
+
+    return {
+        oncoKb,
+        customDriverBinary,
+        customDriverTier,
+    };
+}
+
+export function evaluateMutationPutativeDriverInfo(
+    mutation: Mutation,
+    oncoKbDatum: IndicatorQueryResp | undefined | null | false,
+    hotspotAnnotationsActive: boolean,
+    hotspotDriver: boolean,
+    cbioportalCountActive: boolean,
+    cbioportalCountExceeded: boolean,
+    cosmicCountActive: boolean,
+    cosmicCountExceeded: boolean,
+    customDriverAnnotationsActive: boolean,
+    customDriverTierSelection: ObservableMap<string, boolean> | undefined
+) {
+    const oncoKb = oncoKbDatum ? getOncoKbOncogenic(oncoKbDatum) : '';
+    const hotspots = hotspotAnnotationsActive && hotspotDriver;
+    const cbioportalCount = cbioportalCountActive && cbioportalCountExceeded;
+    const cosmicCount = cosmicCountActive && cosmicCountExceeded;
+
+    // Set driverFilter to true when:
+    // (1) custom drivers active in settings menu
+    // (2) the datum has a custom driver annotation
+    const customDriverBinary: boolean =
+        (customDriverAnnotationsActive &&
+            mutation.driverFilter === PUTATIVE_DRIVER) ||
+        false;
+
+    // Set tier information to the tier name when the tiers checkbox
+    // is selected for the corresponding tier of the datum in settings menu.
+    // This forces the Mutation to be counted as a driver mutation.
+    const customDriverTier: string | undefined =
+        mutation.driverTiersFilter &&
+        customDriverTierSelection &&
+        customDriverTierSelection.get(mutation.driverTiersFilter)
+            ? mutation.driverTiersFilter
+            : undefined;
+
+    return {
+        oncoKb,
+        hotspots,
+        cbioportalCount,
+        cosmicCount,
+        customDriverBinary,
+        customDriverTier,
+    };
+}
+
+export function filterAndAnnotateMolecularData(
+    molecularData: NumericGeneMolecularData[],
+    getPutativeDriverInfo: (
+        cnaDatum: NumericGeneMolecularData
+    ) => {
+        oncoKb: string;
+        customDriverBinary: boolean;
+        customDriverTier?: string | undefined;
+    },
+    entrezGeneIdToGene: { [entrezGeneId: number]: Gene },
+    discreteCnaProfileIds?: string[]
+): FilteredAndAnnotatedDiscreteCNAReport<AnnotatedNumericGeneMolecularData> {
+    const vus: AnnotatedNumericGeneMolecularData[] = [];
+    const filteredAnnotatedCnaData = [];
+    // will it work not to filter for molecular profile here?
+    for (const datum of molecularData) {
+        const annotatedDatum = annotateMolecularDatum(
+            datum,
+            getPutativeDriverInfo(datum),
+            discreteCnaProfileIds
+        );
+        annotatedDatum.hugoGeneSymbol =
+            entrezGeneIdToGene[datum.entrezGeneId].hugoGeneSymbol;
+        const isVus = !annotatedDatum.putativeDriver;
+        if (isVus) {
+            vus.push(annotatedDatum);
+        } else {
+            filteredAnnotatedCnaData.push(annotatedDatum);
+        }
+    }
+    return {
+        data: filteredAnnotatedCnaData,
+        vus,
+    };
+}
+
+export function filterAndAnnotateMutations(
+    mutations: Mutation[],
+    getPutativeDriverInfo: (
+        mutation: Mutation
+    ) => {
+        oncoKb: string;
+        hotspots: boolean;
+        cbioportalCount: boolean;
+        cosmicCount: boolean;
+        customDriverBinary: boolean;
+        customDriverTier?: string;
+    },
+    entrezGeneIdToGene: {
+        [entrezGeneId: number]: {
+            hugoGeneSymbol: string;
+            entrezGeneId: number;
+        };
+    }
+): FilteredAndAnnotatedMutationsReport<AnnotatedMutation> {
+    const vus: AnnotatedMutation[] = [];
+    const germline: AnnotatedMutation[] = [];
+    const vusAndGermline: AnnotatedMutation[] = [];
+    const filteredAnnotatedMutations = [];
+    for (const mutation of mutations) {
+        const annotatedMutation = annotateMutationPutativeDriver(
+            mutation,
+            getPutativeDriverInfo(mutation)
+        ); // annotate
+        annotatedMutation.hugoGeneSymbol =
+            entrezGeneIdToGene[mutation.entrezGeneId].hugoGeneSymbol;
+        const isGermline = !isNotGermlineMutation(mutation);
+        const isVus = !annotatedMutation.putativeDriver;
+        if (isGermline && isVus) {
+            vusAndGermline.push(annotatedMutation);
+        } else if (isGermline) {
+            germline.push(annotatedMutation);
+        } else if (isVus) {
+            vus.push(annotatedMutation);
+        } else {
+            filteredAnnotatedMutations.push(annotatedMutation);
+        }
+    }
+    return {
+        data: filteredAnnotatedMutations,
+        vus,
+        germline,
+        vusAndGermline,
+    };
 }

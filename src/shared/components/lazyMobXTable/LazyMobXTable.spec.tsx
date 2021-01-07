@@ -7,6 +7,7 @@ import {
     lazyMobXTableSort,
     default as LazyMobXTable,
     Column,
+    LazyMobXTableStore,
 } from './LazyMobXTable';
 import SimpleTable from '../simpleTable/SimpleTable';
 import { DefaultTooltip } from 'cbioportal-frontend-commons';
@@ -22,7 +23,7 @@ import { Button, FormControl, Checkbox } from 'react-bootstrap';
 import { ColumnVisibilityControls } from '../columnVisibilityControls/ColumnVisibilityControls';
 import { SimpleLazyMobXTableApplicationDataStore } from '../../lib/ILazyMobXTableApplicationDataStore';
 import cloneJSXWithoutKeyAndRef from 'shared/lib/cloneJSXWithoutKeyAndRef';
-import { maxPage } from './utils';
+import { filterNumericalColumn, maxPage, parseNumericalFilter } from './utils';
 import _ from 'lodash';
 
 expect.extend(expectJSX);
@@ -396,6 +397,25 @@ describe('LazyMobXTable', () => {
 
     after(() => {
         clock.uninstall();
+    });
+
+    describe('downloadData', () => {
+        it('only displays columns with defined download functions', () => {
+            assert.deepEqual(
+                new LazyMobXTableStore({
+                    columns: columns,
+                    data: data,
+                }).downloadData,
+                [
+                    ['Name', 'Number', 'String', 'Initially invisible column'],
+                    ['0', '0', 'asdfj', '0HELLO123456'],
+                    ['1', '6', 'kdfjpo', '1HELLO123456'],
+                    ['2', 'null', 'null', '2HELLO123456'],
+                    ['3', '-1', 'zijxcpo', '3HELLO123456'],
+                    ['4', '90', 'zkzxc', '4HELLO123456'],
+                ]
+            );
+        });
     });
 
     describe('utils', () => {
@@ -2269,19 +2289,19 @@ describe('LazyMobXTable', () => {
                         any
                     >).getDownloadDataPromise()
                 ).text,
-                'Name\tNumber\tString\tNumber List\tInitially invisible column\tInitially invisible column with no download\tString without filter function\r\n'
+                'Name\tNumber\tString\tInitially invisible column\r\n'
             );
         });
         it("gives one row of data when theres one row. data given for every column, including hidden, and without download def'n. if no data, gives empty string for that cell.", async () => {
-            let table = mount(<Table columns={columns} data={[data[0]]} />);
+            let table = mount(<Table columns={columns} data={[datum0]} />);
             assert.deepEqual(
                 (
                     await (table.instance() as LazyMobXTable<
                         any
                     >).getDownloadDataPromise()
                 ).text,
-                'Name\tNumber\tString\tNumber List\tInitially invisible column\tInitially invisible column with no download\tString without filter function\r\n' +
-                    '0\t0\tasdfj\t\t0HELLO123456\t\t\r\n'
+                'Name\tNumber\tString\tInitially invisible column\r\n' +
+                    '0\t0\tasdfj\t0HELLO123456\r\n'
             );
         });
         it("gives data for all rows. data given for every column, including hidden, and without download def'n. if no data, gives empty string for that cell", async () => {
@@ -2292,12 +2312,12 @@ describe('LazyMobXTable', () => {
                         any
                     >).getDownloadDataPromise()
                 ).text,
-                'Name\tNumber\tString\tNumber List\tInitially invisible column\tInitially invisible column with no download\tString without filter function\r\n' +
-                    '0\t0\tasdfj\t\t0HELLO123456\t\t\r\n' +
-                    '1\t6\tkdfjpo\t\t1HELLO123456\t\t\r\n' +
-                    '2\tnull\tnull\t\t2HELLO123456\t\t\r\n' +
-                    '3\t-1\tzijxcpo\t\t3HELLO123456\t\t\r\n' +
-                    '4\t90\tzkzxc\t\t4HELLO123456\t\t\r\n'
+                'Name\tNumber\tString\tInitially invisible column\r\n' +
+                    '0\t0\tasdfj\t0HELLO123456\r\n' +
+                    '1\t6\tkdfjpo\t1HELLO123456\r\n' +
+                    '2\tnull\tnull\t2HELLO123456\r\n' +
+                    '3\t-1\tzijxcpo\t3HELLO123456\r\n' +
+                    '4\t90\tzkzxc\t4HELLO123456\r\n'
             );
         });
         it('gives data back in sorted order according to initially selected sort column and direction', async () => {
@@ -2316,12 +2336,12 @@ describe('LazyMobXTable', () => {
                         any
                     >).getDownloadDataPromise()
                 ).text,
-                'Name\tNumber\tString\tNumber List\tInitially invisible column\tInitially invisible column with no download\tString without filter function\r\n' +
-                    '3\t-1\tzijxcpo\t\t3HELLO123456\t\t\r\n' +
-                    '0\t0\tasdfj\t\t0HELLO123456\t\t\r\n' +
-                    '1\t6\tkdfjpo\t\t1HELLO123456\t\t\r\n' +
-                    '4\t90\tzkzxc\t\t4HELLO123456\t\t\r\n' +
-                    '2\tnull\tnull\t\t2HELLO123456\t\t\r\n'
+                'Name\tNumber\tString\tInitially invisible column\r\n' +
+                    '3\t-1\tzijxcpo\t3HELLO123456\r\n' +
+                    '0\t0\tasdfj\t0HELLO123456\r\n' +
+                    '1\t6\tkdfjpo\t1HELLO123456\r\n' +
+                    '4\t90\tzkzxc\t4HELLO123456\r\n' +
+                    '2\tnull\tnull\t2HELLO123456\r\n'
             );
         });
 
@@ -2333,12 +2353,12 @@ describe('LazyMobXTable', () => {
                         any
                     >).getDownloadDataPromise()
                 ).text,
-                'Name\tNumber\tString\tNumber List\tInitially invisible column\tInitially invisible column with no download\tString without filter function\r\n' +
-                    '0\t0\tasdfj\t\t0HELLO123456\t\t\r\n' +
-                    '1\t6\tkdfjpo\t\t1HELLO123456\t\t\r\n' +
-                    '2\tnull\tnull\t\t2HELLO123456\t\t\r\n' +
-                    '3\t-1\tzijxcpo\t\t3HELLO123456\t\t\r\n' +
-                    '4\t90\tzkzxc\t\t4HELLO123456\t\t\r\n'
+                'Name\tNumber\tString\tInitially invisible column\r\n' +
+                    '0\t0\tasdfj\t0HELLO123456\r\n' +
+                    '1\t6\tkdfjpo\t1HELLO123456\r\n' +
+                    '2\tnull\tnull\t2HELLO123456\r\n' +
+                    '3\t-1\tzijxcpo\t3HELLO123456\r\n' +
+                    '4\t90\tzkzxc\t4HELLO123456\r\n'
             );
         });
 
@@ -2347,10 +2367,12 @@ describe('LazyMobXTable', () => {
                 {
                     name: 'Myth',
                     render: (d: any) => <span />,
+                    download: (d: any) => '',
                 },
                 {
                     name: 'Science',
                     render: (d: any) => <span />,
+                    download: (d: any) => '',
                     headerDownload: (name: string) =>
                         `${name}: Ruining everything since 1543`,
                 },
@@ -2751,6 +2773,118 @@ describe('LazyMobXTable', () => {
 
             selectItemsPerPage(table, -1);
             assert.equal(getTextBeforeButtons(table), 'Showing 1-120 of 120');
+        });
+    });
+});
+
+describe('utils', () => {
+    describe('parseNumericalFilter', () => {
+        it('parses valid inputs when columns match', () => {
+            assert.deepEqual(
+                parseNumericalFilter('patients >100', 'patients with data'),
+                {
+                    symbol: '>',
+                    value: 100,
+                }
+            );
+            assert.deepEqual(
+                parseNumericalFilter('patients >=100', 'patients with data'),
+                {
+                    symbol: '>=',
+                    value: 100,
+                }
+            );
+            assert.deepEqual(
+                parseNumericalFilter('patients= 100.111', 'patients with data'),
+                {
+                    symbol: '=',
+                    value: 100.111,
+                }
+            );
+            assert.deepEqual(parseNumericalFilter('P < 0.05', 'P-Value'), {
+                symbol: '<',
+                value: 0.05,
+            });
+            assert.deepEqual(parseNumericalFilter('P <= 0.05', 'P-Value'), {
+                symbol: '<=',
+                value: 0.05,
+            });
+            assert.deepEqual(parseNumericalFilter('P<= 0.05', 'P-Value'), {
+                symbol: '<=',
+                value: 0.05,
+            });
+        });
+        it('returns null on valid input if columns dont match', () => {
+            assert.deepEqual(
+                parseNumericalFilter('patients >100', 'p-value'),
+                null
+            );
+            assert.deepEqual(
+                parseNumericalFilter('patients= 100', 'Patients'),
+                null
+            );
+            assert.deepEqual(parseNumericalFilter('P< 0.05', 'patients'), null);
+        });
+        it('returns null on invalid input', () => {
+            assert.deepEqual(
+                parseNumericalFilter('patients >abcd', 'patients'),
+                null
+            );
+            assert.deepEqual(
+                parseNumericalFilter('patients =>>1', 'patients'),
+                null
+            );
+            assert.deepEqual(
+                parseNumericalFilter('p= abcd0.13', 'p-value'),
+                null
+            );
+            assert.deepEqual(
+                parseNumericalFilter('patients<abcd,124', 'patients'),
+                null
+            );
+        });
+    });
+    describe('filterNumericalColumn', () => {
+        const filter = filterNumericalColumn(
+            (d: any) => d.value,
+            '# Patients With Data'
+        );
+        it('returns false for null values', () => {
+            assert.equal(
+                filter({ value: null }, 'patients>10', 'PATIENTS>10'),
+                false
+            );
+        });
+        it('returns true for matches and false for not matches', () => {
+            assert.equal(
+                filter({ value: 11 }, 'patients >10.5', 'PATIENTS >10.5'),
+                true
+            );
+            assert.equal(
+                filter({ value: 4 }, 'patients<=5', 'PATIENTS<=5'),
+                true
+            );
+            assert.equal(
+                filter({ value: 5 }, 'patients = 5', 'PATIENTS = 5'),
+                true
+            );
+            assert.equal(
+                filter({ value: 9 }, 'patients>= 10', 'PATIENTS>= 10'),
+                false
+            );
+            assert.equal(
+                filter({ value: 6 }, 'patients<5', 'PATIENTS<5'),
+                false
+            );
+            assert.equal(
+                filter({ value: 3 }, 'patients =5', 'PATIENTS =5'),
+                false
+            );
+        });
+        it('returns false for unrelated columns', () => {
+            assert.equal(filter({ value: 11 }, 'q> 10.5', 'Q> 10.5'), false);
+            assert.equal(filter({ value: 4 }, 'q < 5', 'Q < 5'), false);
+            assert.equal(filter({ value: 5 }, 'q=5', 'Q=5'), false);
         });
     });
 });

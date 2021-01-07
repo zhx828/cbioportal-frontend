@@ -13,7 +13,7 @@ import {
     TableHeaderProps,
 } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { action, computed, observable, toJS } from 'mobx';
+import { action, computed, observable, toJS, makeObservable } from 'mobx';
 import styles from './tables.module.scss';
 import * as _ from 'lodash';
 import { Observer, observer } from 'mobx-react';
@@ -38,15 +38,20 @@ export type IFixedHeaderTableProps<T> = {
     headerHeight?: number;
     rowHeight?: number;
     numberOfSelectedRows: number;
+    showSetOperationsButton?: boolean;
     afterSelectingRows?: () => void;
     toggleSelectionOperator?: () => void;
     // used only when showControlsAtTop === true (show controls at bottom otherwise)
     showControlsAtTop?: boolean;
     hideControls?: boolean;
-    showAddRemoveAllButtons?: boolean;
+    extraButtons?: {
+        content: any;
+        onClick: () => void;
+        isDisabled: () => boolean;
+    }[];
+    showAddRemoveAllButton?: boolean;
     addAll?: (data: T[]) => void;
     removeAll?: (data: T[]) => void;
-    removeAllDisabled?: boolean;
     showSelectableNumber?: boolean;
     isSelectedRow?: (data: T) => boolean;
     highlightedRowClassName?: (data: T) => string;
@@ -64,12 +69,13 @@ export class FixedHeaderTableDataStore extends SimpleGetterLazyMobXTableApplicat
 > {
     constructor(getData: () => any[], fixedTopRowsData: any[]) {
         super(getData);
+        makeObservable(this);
         this.fixedTopRowsData = fixedTopRowsData;
     }
 
     private fixedTopRowsData: any[];
 
-    @computed get sortedData() {
+    protected getSortedData = () => {
         // if not defined, use default values for sortMetric and sortAscending
         const sortMetric = this.sortMetric || (() => 0);
         const sortAscending =
@@ -79,7 +85,7 @@ export class FixedHeaderTableDataStore extends SimpleGetterLazyMobXTableApplicat
             ...this.fixedTopRowsData,
             ...lazyMobXTableSort(this.allData, sortMetric, sortAscending),
         ];
-    }
+    };
 }
 
 @observer
@@ -90,12 +96,12 @@ export default class FixedHeaderTable<T> extends React.Component<
     private _store: LazyMobXTableStore<T>;
     inputElement: HTMLSpanElement;
 
-    @observable private _sortBy: string;
+    @observable.ref private _sortBy: string;
     @observable private _sortDirection: SortDirection;
 
     public static defaultProps = {
         showControlsAtTop: false,
-        showAddRemoveAllButtons: false,
+        showAddRemoveAllButton: false,
         autoFocusSearchAfterRendering: false,
         width: 398,
         height: 350,
@@ -109,6 +115,7 @@ export default class FixedHeaderTable<T> extends React.Component<
 
     constructor(props: IFixedHeaderTableProps<T>) {
         super(props);
+        makeObservable(this);
         this._sortBy = props.sortBy!;
         const sortByColumn = _.find(
             this.props.columns,
@@ -195,8 +202,7 @@ export default class FixedHeaderTable<T> extends React.Component<
         return _.keyBy(this.props.columns, column => column.name)[columnKey];
     }
 
-    @autobind
-    @action
+    @action.bound
     sort({ sortBy }: any) {
         this._store.defaultHeaderClick(this.getColumn(sortBy));
         this._sortBy = sortBy;
@@ -208,24 +214,21 @@ export default class FixedHeaderTable<T> extends React.Component<
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     onFilterTextChange() {
         return inputBoxChangeTimeoutEvent(filterValue => {
             this._store.setFilterString(filterValue);
         }, 400);
     }
 
-    @autobind
-    @action
+    @action.bound
     afterSelectingRows() {
         if (this.props.afterSelectingRows) {
             this.props.afterSelectingRows();
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     changeSelectionType(selectionOperator?: SelectionOperatorEnum) {
         if (
             this.props.toggleSelectionOperator &&
@@ -347,9 +350,51 @@ export default class FixedHeaderTable<T> extends React.Component<
         });
     }
 
+    getAddRemoveAllButton() {
+        const allSelected =
+            this.props.numberOfSelectedRows === this.props.data.length;
+
+        let dataTest: string, onClick: () => void, content: string;
+        let showButton = false;
+
+        if (allSelected && this.props.removeAll) {
+            dataTest = 'fixed-header-table-remove-all';
+            onClick = this.onRemoveAll;
+            content = 'Deselect all';
+            showButton = true;
+        } else if (this.props.addAll) {
+            dataTest = 'fixed-header-table-add-all';
+            onClick = this.onAddAll;
+            content = `Select all${
+                this.props.showSelectableNumber
+                    ? ` (${this._store.dataStore.sortedFilteredData.length})`
+                    : ''
+            }`;
+            showButton = true;
+        }
+
+        if (showButton) {
+            return (
+                <button
+                    className="btn btn-default btn-xs"
+                    data-test={dataTest!}
+                    onClick={onClick!}
+                >
+                    {content!}
+                </button>
+            );
+        } else {
+            return null;
+        }
+    }
+
     getControls() {
         return (
-            <div className={classnames(styles.controls)}>
+            <div
+                className={classnames(styles.controls, {
+                    [styles.controlsAtTop]: !!this.props.showControlsAtTop,
+                })}
+            >
                 {!this.props.showControlsAtTop && (
                     <input
                         placeholder={'Search...'}
@@ -361,35 +406,14 @@ export default class FixedHeaderTable<T> extends React.Component<
                         )}
                     />
                 )}
-                <If condition={this.props.showAddRemoveAllButtons}>
-                    <div className={'btn-group'} role={'group'}>
-                        {this.props.addAll && (
-                            <button
-                                className="btn btn-default btn-xs"
-                                onClick={this.onAddAll}
-                                data-test="fixed-header-table-add-all"
-                            >
-                                {`Select all${
-                                    this.props.showSelectableNumber
-                                        ? ` (${this._store.dataStore.sortedFilteredData.length})`
-                                        : ''
-                                }`}
-                            </button>
-                        )}
-                        {this.props.removeAll && (
-                            <button
-                                className="btn btn-default btn-xs"
-                                data-test="fixed-header-table-remove-all"
-                                onClick={this.onRemoveAll}
-                                disabled={this.props.removeAllDisabled}
-                            >
-                                Deselect all
-                            </button>
-                        )}
-                    </div>
-                </If>
-
-                <If condition={this.props.numberOfSelectedRows > 0}>
+                {this.props.showAddRemoveAllButton &&
+                    this.getAddRemoveAllButton()}
+                <If
+                    condition={
+                        this.props.showSetOperationsButton &&
+                        this.props.numberOfSelectedRows > 0
+                    }
+                >
                     <div className="btn-group">
                         <button
                             className="btn btn-default btn-xs"
@@ -421,6 +445,16 @@ export default class FixedHeaderTable<T> extends React.Component<
                         </If>
                     </div>
                 </If>
+                {this.props.extraButtons &&
+                    this.props.extraButtons.map(btn => (
+                        <button
+                            className="btn btn-default btn-xs"
+                            onClick={btn.onClick}
+                            disabled={btn.isDisabled()}
+                        >
+                            {btn.content}
+                        </button>
+                    ))}
                 {this.props.showControlsAtTop && (
                     <input
                         placeholder={'Search...'}

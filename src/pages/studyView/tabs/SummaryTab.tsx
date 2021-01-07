@@ -5,13 +5,9 @@ import {
     ChartContainer,
     IChartContainerProps,
 } from 'pages/studyView/charts/ChartContainer';
-import { observable, toJS } from 'mobx';
+import { observable, toJS, makeObservable } from 'mobx';
 import { StudyViewPageStore } from 'pages/studyView/StudyViewPageStore';
-import {
-    DataFilterValue,
-    ClinicalDataBin,
-    GenomicDataBin,
-} from 'cbioportal-ts-api-client';
+import { DataFilterValue, GenomicDataBin } from 'cbioportal-ts-api-client';
 import LoadingIndicator from 'shared/components/loadingIndicator/LoadingIndicator';
 import ReactGridLayout, { WidthProvider, Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -27,10 +23,19 @@ import ProgressIndicator, {
 } from '../../../shared/components/progressIndicator/ProgressIndicator';
 import autobind from 'autobind-decorator';
 import LabeledCheckbox from '../../../shared/components/labeledCheckbox/LabeledCheckbox';
-import { ChartMeta, ChartType, RectangleBounds } from '../StudyViewUtils';
+import {
+    ChartMeta,
+    ChartType,
+    RectangleBounds,
+    DataBin,
+} from '../StudyViewUtils';
 import { DataType } from 'cbioportal-frontend-commons';
 import { toSampleTreatmentFilter } from '../table/treatments/treatmentsTableUtil';
-import { OredSampleTreatmentFilters } from 'cbioportal-ts-api-client/dist/generated/CBioPortalAPIInternal';
+import {
+    OredSampleTreatmentFilters,
+    GenericAssayDataBin,
+} from 'cbioportal-ts-api-client/dist/generated/CBioPortalAPIInternal';
+import DelayedRender from 'shared/components/DelayedRender';
 
 export interface IStudySummaryTabProps {
     store: StudyViewPageStore;
@@ -53,6 +58,7 @@ export class StudySummaryTab extends React.Component<
 
     constructor(props: IStudySummaryTabProps) {
         super(props);
+        makeObservable(this);
         this.store = props.store;
 
         this.handlers = {
@@ -62,10 +68,7 @@ export class StudySummaryTab extends React.Component<
                     values.map(value => ({ value } as DataFilterValue))
                 );
             },
-            onDataBinSelection: (
-                chartMeta: ChartMeta,
-                dataBins: ClinicalDataBin[]
-            ) => {
+            onDataBinSelection: (chartMeta: ChartMeta, dataBins: DataBin[]) => {
                 this.store.updateClinicalDataIntervalFilters(
                     chartMeta.uniqueKey,
                     dataBins
@@ -108,6 +111,15 @@ export class StudySummaryTab extends React.Component<
                     dataBins
                 );
             },
+            onGenericAssayDataBinSelection: (
+                chartMeta: ChartMeta,
+                dataBins: GenericAssayDataBin[]
+            ) => {
+                this.store.updateGenericAssayDataIntervalFilters(
+                    chartMeta.uniqueKey,
+                    dataBins
+                );
+            },
         };
     }
 
@@ -117,7 +129,6 @@ export class StudySummaryTab extends React.Component<
             chartType: this.props.store.chartsType.get(chartMeta.uniqueKey),
             store: this.props.store,
             dimension: this.store.chartsDimension.get(chartMeta.uniqueKey),
-            openComparisonPage: this.store.openComparisonPage,
             title: chartMeta.displayName,
             filters: [],
             onDeleteChart: this.handlers.onDeleteChart,
@@ -174,6 +185,19 @@ export class StudySummaryTab extends React.Component<
                     );
                     props.onDataBinSelection = this.handlers.onGenomicDataBinSelection;
                     props.onResetSelection = this.handlers.onGenomicDataBinSelection;
+                    props.getData = () =>
+                        this.store.getChartDownloadableData(chartMeta);
+                } else if (
+                    this.store.isGenericAssayChart(chartMeta.uniqueKey)
+                ) {
+                    props.promise = this.store.getGenericAssayChartDataBin(
+                        chartMeta
+                    );
+                    props.filters = this.store.getGenericAssayDataIntervalFiltersByUniqueKey(
+                        props.chartMeta!.uniqueKey
+                    );
+                    props.onDataBinSelection = this.handlers.onGenericAssayDataBinSelection;
+                    props.onResetSelection = this.handlers.onGenericAssayDataBinSelection;
                     props.getData = () =>
                         this.store.getChartDownloadableData(chartMeta);
                 } else {
@@ -315,7 +339,7 @@ export class StudySummaryTab extends React.Component<
                     ? this.store.survivalDescriptions.result![
                           chartMeta.uniqueKey.substring(
                               0,
-                              chartMeta.uniqueKey.indexOf('_SURVIVAL')
+                              chartMeta.uniqueKey.lastIndexOf('_SURVIVAL')
                           )
                       ][0]
                     : undefined;
@@ -377,7 +401,14 @@ export class StudySummaryTab extends React.Component<
         //      issue will be solved.
         return (
             <div key={chartMeta.uniqueKey}>
-                <ChartContainer key={chartMeta.uniqueKey} {...(props as any)} />
+                <DelayedRender>
+                    {/* Delay the render after a setTimeout, because synchronous rendering would jam UI updates
+                    and make things laggy */}
+                    <ChartContainer
+                        key={chartMeta.uniqueKey}
+                        {...(props as any)}
+                    />
+                </DelayedRender>
             </div>
         );
     };
@@ -421,6 +452,9 @@ export class StudySummaryTab extends React.Component<
                     this.store.initialVisibleAttributesClinicalDataCountData,
                 ],
             },
+            {
+                label: 'Rendering',
+            },
         ];
     }
 
@@ -435,7 +469,7 @@ export class StudySummaryTab extends React.Component<
                     <ProgressIndicator
                         getItems={this.getProgressItems}
                         show={this.store.loadingInitialDataForSummaryTab}
-                        sequential={false}
+                        sequential={true}
                     />
                 </LoadingIndicator>
                 {this.store.invalidSampleIds.result.length > 0 &&
@@ -512,51 +546,46 @@ export class StudySummaryTab extends React.Component<
                     </div>
                 )}
 
-                {this.props.store.selectedSamples.result.length > 0 &&
-                    !this.store.loadingInitialDataForSummaryTab && (
-                        <div data-test="summary-tab-content">
-                            <div className={styles.studyViewFlexContainer}>
-                                {this.store.defaultVisibleAttributes
-                                    .isComplete && (
-                                    <ReactGridLayout
-                                        className="layout"
-                                        style={{
-                                            width: this.store.containerWidth,
-                                        }}
-                                        width={this.store.containerWidth}
-                                        cols={
-                                            this.store.studyViewPageLayoutProps
-                                                .cols
-                                        }
-                                        rowHeight={
-                                            this.store.studyViewPageLayoutProps
-                                                .grid.h
-                                        }
-                                        layout={
-                                            this.store.studyViewPageLayoutProps
-                                                .layout
-                                        }
-                                        margin={[
-                                            STUDY_VIEW_CONFIG.layout.gridMargin
-                                                .x,
-                                            STUDY_VIEW_CONFIG.layout.gridMargin
-                                                .y,
-                                        ]}
-                                        useCSSTransforms={false}
-                                        draggableHandle={`.${chartHeaderStyles.draggable}`}
-                                        onLayoutChange={
-                                            this.handlers.onLayoutChange
-                                        }
-                                        onResizeStop={this.onResize}
-                                    >
-                                        {this.store.visibleAttributes.map(
-                                            this.renderAttributeChart
-                                        )}
-                                    </ReactGridLayout>
-                                )}
-                            </div>
+                {!this.store.loadingInitialDataForSummaryTab && (
+                    <div data-test="summary-tab-content">
+                        <div className={styles.studyViewFlexContainer}>
+                            {this.store.defaultVisibleAttributes.isComplete && (
+                                <ReactGridLayout
+                                    className="layout"
+                                    style={{
+                                        width: this.store.containerWidth,
+                                    }}
+                                    width={this.store.containerWidth}
+                                    cols={
+                                        this.store.studyViewPageLayoutProps.cols
+                                    }
+                                    rowHeight={
+                                        this.store.studyViewPageLayoutProps.grid
+                                            .h
+                                    }
+                                    layout={
+                                        this.store.studyViewPageLayoutProps
+                                            .layout
+                                    }
+                                    margin={[
+                                        STUDY_VIEW_CONFIG.layout.gridMargin.x,
+                                        STUDY_VIEW_CONFIG.layout.gridMargin.y,
+                                    ]}
+                                    useCSSTransforms={false}
+                                    draggableHandle={`.${chartHeaderStyles.draggable}`}
+                                    onLayoutChange={
+                                        this.handlers.onLayoutChange
+                                    }
+                                    onResizeStop={this.onResize}
+                                >
+                                    {this.store.visibleAttributes.map(
+                                        this.renderAttributeChart
+                                    )}
+                                </ReactGridLayout>
+                            )}
                         </div>
-                    )}
+                    </div>
+                )}
                 {this.props.store.selectedSamples.isComplete &&
                     this.props.store.selectedSamples.result.length === 0 && (
                         <div className={styles.studyViewNoSamples}>

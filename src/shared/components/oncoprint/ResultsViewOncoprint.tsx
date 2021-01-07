@@ -3,9 +3,9 @@ import { Observer, observer } from 'mobx-react';
 import {
     action,
     computed,
-    IObservableObject,
     IReactionDisposer,
     observable,
+    makeObservable,
 } from 'mobx';
 import {
     capitalize,
@@ -86,6 +86,7 @@ import {
     getOncoprinterHeatmapInput,
 } from '../../../pages/staticPages/tools/oncoprinter/OncoprinterImportUtils';
 import { buildCBioPortalPageUrl } from '../../api/urls';
+import '../../../globalStyles/oncoprintStyles.scss';
 
 interface IResultsViewOncoprintProps {
     divId: string;
@@ -270,11 +271,12 @@ export default class ResultsViewOncoprint extends React.Component<
         return list.reduce((acc, key) => {
             acc.set(key, true);
             return acc;
-        }, observable.shallowMap<boolean>());
+        }, observable.map<string, boolean>({}, { deep: false }));
     }
 
-    public expansionsByGeneticTrackKey = observable.map<number[]>();
+    public expansionsByGeneticTrackKey = observable.map<string, number[]>();
     public expansionsByGenesetHeatmapTrackKey = observable.map<
+        string,
         IGenesetExpansionRecord[]
     >();
 
@@ -345,7 +347,7 @@ export default class ResultsViewOncoprint extends React.Component<
     }
 
     public controlsHandlers: IOncoprintControlsHandlers;
-    private controlsState: IOncoprintControlsState & IObservableObject;
+    private controlsState: IOncoprintControlsState;
 
     @observable.ref private oncoprint: OncoprintJS;
 
@@ -354,6 +356,7 @@ export default class ResultsViewOncoprint extends React.Component<
     constructor(props: IResultsViewOncoprintProps) {
         super(props);
 
+        makeObservable(this);
         this.showOqlInLabels = props.store.queryContainsOql;
         (window as any).resultsViewOncoprint = this;
 
@@ -400,7 +403,7 @@ export default class ResultsViewOncoprint extends React.Component<
 
         this.controlsState = observable({
             get selectedClinicalAttributeIds() {
-                return self.selectedClinicalAttributeIds.keys();
+                return Array.from(self.selectedClinicalAttributeIds.keys());
             },
             get selectedColumnType() {
                 return self.oncoprintAnalysisCaseType;
@@ -1024,7 +1027,7 @@ export default class ResultsViewOncoprint extends React.Component<
     }
 
     @computed get clinicalTracksUrlParam() {
-        return this.selectedClinicalAttributeIds.keys().join(',');
+        return [...this.selectedClinicalAttributeIds.keys()].join(',');
     }
 
     private readonly unalteredKeys = remoteData({
@@ -1229,7 +1232,7 @@ export default class ResultsViewOncoprint extends React.Component<
     private onDeleteClinicalTrack(clinicalTrackKey: string) {
         // ignore tracks being deleted due to rendering process reasons
         if (!this.isHidden) {
-            const ids = this.selectedClinicalAttributeIds.keys();
+            const ids = [...this.selectedClinicalAttributeIds.keys()];
             const withoutDeleted = _.filter(
                 ids,
                 item =>
@@ -1249,8 +1252,7 @@ export default class ResultsViewOncoprint extends React.Component<
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     public clearSortDirectionsAndSortByData() {
         if (this.oncoprint) {
             this.oncoprint.resetSortableTracksSortDirection();
@@ -1260,10 +1262,6 @@ export default class ResultsViewOncoprint extends React.Component<
 
     // @computed
     public get oncoprintAnalysisCaseType() {
-        // return (
-        //     (this.routing.location.query as CancerStudyQueryUrlParams)
-        //         .show_samples === 'true'
-        // ) ? OncoprintAnalysisCaseType.SAMPLE : OncoprintAnalysisCaseType.PATIENT;
         return this.urlWrapper.query.show_samples === 'true'
             ? OncoprintAnalysisCaseType.SAMPLE
             : OncoprintAnalysisCaseType.PATIENT;
@@ -1437,8 +1435,7 @@ export default class ResultsViewOncoprint extends React.Component<
         };
     }
 
-    @autobind
-    @action
+    @action.bound
     private clusterHeatmapByIndex(index: TrackGroupIndex) {
         if (this.oncoprint) {
             this.oncoprint.resetSortableTracksSortDirection();
@@ -1468,8 +1465,7 @@ export default class ResultsViewOncoprint extends React.Component<
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     private removeHeatmapByIndex(index: TrackGroupIndex) {
         const groupEntry = _.values(
             this.molecularProfileIdToHeatmapTracks
@@ -1481,8 +1477,7 @@ export default class ResultsViewOncoprint extends React.Component<
         }
     }
 
-    @autobind
-    @action
+    @action.bound
     public removeHeatmapByMolecularProfileId(molecularProfileId: string) {
         delete this.molecularProfileIdToHeatmapTrackGroupIndex[
             molecularProfileId
@@ -1637,7 +1632,7 @@ export default class ResultsViewOncoprint extends React.Component<
         }
 
         const areNonLocalClinicalAttributesSelected = _.some(
-            this.selectedClinicalAttributeIds.keys(),
+            [...this.selectedClinicalAttributeIds.keys()],
             clinicalAttributeId =>
                 !clinicalAttributeIsLocallyComputed({ clinicalAttributeId })
         );

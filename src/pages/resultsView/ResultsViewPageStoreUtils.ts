@@ -1,40 +1,39 @@
 import {
-    Gene,
-    NumericGeneMolecularData,
-    GenePanel,
-    GenePanelData,
-    MolecularProfile,
-    Mutation,
-    Patient,
-    Sample,
     CancerStudy,
     ClinicalAttribute,
-    PatientIdentifier,
+    ClinicalData,
+    DiscreteCopyNumberData,
+    MolecularProfile,
+    Mutation,
+    NumericGeneMolecularData,
     PatientFilter,
+    PatientIdentifier,
     ReferenceGenomeGene,
+    Sample,
 } from 'cbioportal-ts-api-client';
-import { action, computed } from 'mobx';
+import { action, ObservableMap } from 'mobx';
 import AccessorsForOqlFilter, {
     getSimplifiedMutationType,
 } from '../../shared/lib/oql/AccessorsForOqlFilter';
 import {
-    OQLLineFilterOutput,
-    UnflattenedOQLLineFilterOutput,
     filterCBioPortalWebServiceDataByUnflattenedOQLLine,
     isMergedTrackFilter,
     MergedTrackLineFilterOutput,
+    OQLLineFilterOutput,
+    UnflattenedOQLLineFilterOutput,
 } from '../../shared/lib/oql/oqlfilter';
-import oql_parser from '../../shared/lib/oql/oql-parser';
-import { groupBy } from '../../shared/lib/StoreUtils';
+import oql_parser, { Alteration } from '../../shared/lib/oql/oql-parser';
+import { getOncoKbOncogenic, groupBy } from '../../shared/lib/StoreUtils';
 import {
+    AlterationTypeConstants,
     AnnotatedExtendedAlteration,
-    AnnotatedNumericGeneMolecularData,
     AnnotatedMutation,
+    AnnotatedNumericGeneMolecularData,
     CaseAggregatedData,
+    CustomDriverNumericGeneMolecularData,
     IQueriedCaseData,
     IQueriedMergedTrackCaseData,
     ResultsViewPageStore,
-    AlterationTypeConstants,
 } from './ResultsViewPageStore';
 import { remoteData } from 'cbioportal-frontend-commons';
 import { IndicatorQueryResp } from 'oncokb-ts-api-client';
@@ -47,7 +46,11 @@ import { SpecialAttribute } from '../../shared/cache/ClinicalDataCache';
 import { isSampleProfiled } from 'shared/lib/isSampleProfiled';
 import { AlteredStatus } from './mutualExclusivity/MutualExclusivityUtil';
 import { Group } from '../../shared/api/ComparisonGroupClient';
-import { isNotGermlineMutation } from '../../shared/lib/MutationUtils';
+import { CustomGroup } from 'pages/studyView/StudyViewPageStore';
+import ComplexKeyMap from 'shared/lib/complexKeyDataStructures/ComplexKeyMap';
+import { CoverageInformation } from '../../shared/lib/GenePanelUtils';
+import { GenericAssayEnrichment } from 'cbioportal-ts-api-client/dist/generated/CBioPortalAPIInternal';
+import { GenericAssayEnrichmentWithQ } from './enrichments/EnrichmentsUtil';
 
 type CustomDriverAnnotationReport = {
     hasBinary: boolean;
@@ -56,38 +59,27 @@ type CustomDriverAnnotationReport = {
 
 type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
-export type ExtendedClinicalAttribute = Pick<
+export type ExtendedClinicalAttribute = Omit<
     ClinicalAttribute,
-    'datatype' | 'description' | 'displayName' | 'patientAttribute'
+    'clinicalAttributeId'
 > & {
     clinicalAttributeId: string | SpecialAttribute;
     molecularProfileIds?: string[];
     comparisonGroup?: Group;
-};
-
-export type CoverageInformationForCase = {
-    byGene: { [hugoGeneSymbol: string]: GenePanelData[] };
-    allGenes: Omit<GenePanelData, 'genePanelId'>[];
-    notProfiledByGene: { [hugoGeneSymbol: string]: GenePanelData[] };
-    notProfiledAllGenes: Omit<GenePanelData, 'genePanelId'>[];
-};
-
-export type CoverageInformation = {
-    samples: { [uniqueSampleKey: string]: CoverageInformationForCase };
-    patients: { [uniquePatientKey: string]: CoverageInformationForCase };
+    data?: ClinicalData[];
 };
 
 export type SampleAlteredMap = { [trackOqlKey: string]: AlteredStatus[] };
 
 export function computeCustomDriverAnnotationReport(
-    mutations: Mutation[]
+    annotations: { driverFilter: string; driverTiersFilter: string }[]
 ): CustomDriverAnnotationReport {
     let hasBinary = false;
     let tiersMap: { [tier: string]: boolean } = {};
-    for (const mutation of mutations) {
-        hasBinary = hasBinary || !!mutation.driverFilter;
-        if (mutation.driverTiersFilter) {
-            tiersMap[mutation.driverTiersFilter] = true;
+    for (const annotation of annotations) {
+        hasBinary = hasBinary || !!annotation.driverFilter;
+        if (annotation.driverTiersFilter) {
+            tiersMap[annotation.driverTiersFilter] = true;
         }
     }
     return {
@@ -158,6 +150,35 @@ export function annotateMutationPutativeDriver(
     ) as AnnotatedMutation;
 }
 
+export function annotateMolecularDatum(
+    molecularDatum: NumericGeneMolecularData,
+    putativeDriverInfo: {
+        oncoKb: string;
+        customDriverBinary: boolean;
+        customDriverTier?: string;
+    },
+    discreteCnaProfileIds?: string[]
+): AnnotatedNumericGeneMolecularData {
+    const isCna =
+        !discreteCnaProfileIds ||
+        discreteCnaProfileIds.includes(molecularDatum.molecularProfileId);
+    const putativeDriver =
+        isCna &&
+        !!(
+            putativeDriverInfo.oncoKb ||
+            putativeDriverInfo.customDriverBinary ||
+            (putativeDriverInfo.customDriverTier &&
+                putativeDriverInfo.customDriverTier !== '')
+        );
+    return Object.assign(
+        {
+            putativeDriver,
+            oncoKbOncogenic: isCna && putativeDriverInfo.oncoKb,
+        },
+        molecularDatum
+    ) as AnnotatedNumericGeneMolecularData;
+}
+
 export type FilteredAndAnnotatedMutationsReport<
     T extends AnnotatedMutation = AnnotatedMutation
 > = {
@@ -167,50 +188,12 @@ export type FilteredAndAnnotatedMutationsReport<
     vusAndGermline: T[];
 };
 
-export function filterAndAnnotateMutations(
-    mutations: Mutation[],
-    getPutativeDriverInfo: (
-        mutation: Mutation
-    ) => {
-        oncoKb: string;
-        hotspots: boolean;
-        cbioportalCount: boolean;
-        cosmicCount: boolean;
-        customDriverBinary: boolean;
-        customDriverTier?: string;
-    },
-    entrezGeneIdToGene: { [entrezGeneId: number]: Gene }
-): FilteredAndAnnotatedMutationsReport<AnnotatedMutation> {
-    const vus: AnnotatedMutation[] = [];
-    const germline: AnnotatedMutation[] = [];
-    const vusAndGermline: AnnotatedMutation[] = [];
-    const filteredAnnotatedMutations = [];
-    for (const mutation of mutations) {
-        const annotatedMutation = annotateMutationPutativeDriver(
-            mutation,
-            getPutativeDriverInfo(mutation)
-        ); // annotate
-        annotatedMutation.hugoGeneSymbol =
-            entrezGeneIdToGene[mutation.entrezGeneId].hugoGeneSymbol;
-        const isGermline = !isNotGermlineMutation(mutation);
-        const isVus = !annotatedMutation.putativeDriver;
-        if (isGermline && isVus) {
-            vusAndGermline.push(annotatedMutation);
-        } else if (isGermline) {
-            germline.push(annotatedMutation);
-        } else if (isVus) {
-            vus.push(annotatedMutation);
-        } else {
-            filteredAnnotatedMutations.push(annotatedMutation);
-        }
-    }
-    return {
-        data: filteredAnnotatedMutations,
-        vus,
-        germline,
-        vusAndGermline,
-    };
-}
+export type FilteredAndAnnotatedDiscreteCNAReport<
+    T extends CustomDriverNumericGeneMolecularData = CustomDriverNumericGeneMolecularData
+> = {
+    data: T[];
+    vus: T[];
+};
 
 export function compileMutations<
     T extends AnnotatedMutation = AnnotatedMutation
@@ -237,164 +220,6 @@ export const ONCOKB_ONCOGENIC_LOWERCASE = [
     'predicted oncogenic',
     'oncogenic',
 ];
-
-export function getOncoKbOncogenic(response: IndicatorQueryResp): string {
-    if (
-        ONCOKB_ONCOGENIC_LOWERCASE.indexOf(
-            (response.oncogenic || '').toLowerCase()
-        ) > -1
-    ) {
-        return response.oncogenic;
-    } else {
-        return '';
-    }
-}
-
-export function computeGenePanelInformation(
-    genePanelData: GenePanelData[],
-    genePanels: GenePanel[],
-    samples: Pick<Sample, 'uniqueSampleKey' | 'uniquePatientKey'>[],
-    patients: Pick<Patient, 'uniquePatientKey'>[],
-    genes: Pick<Gene, 'entrezGeneId' | 'hugoGeneSymbol'>[]
-): CoverageInformation {
-    const entrezToGene = _.keyBy(genes, gene => gene.entrezGeneId);
-    const genePanelToGenes = _.mapValues(
-        _.keyBy(genePanels, panel => panel.genePanelId),
-        (panel: GenePanel) => {
-            return panel.genes.filter(
-                gene => !!entrezToGene[gene.entrezGeneId]
-            ); // only list genes that we're curious in
-        }
-    );
-    const sampleInfo: CoverageInformation['samples'] = _.reduce(
-        samples,
-        (map: CoverageInformation['samples'], sample) => {
-            map[sample.uniqueSampleKey] = {
-                byGene: {},
-                allGenes: [],
-                notProfiledByGene: {},
-                notProfiledAllGenes: [],
-            };
-            return map;
-        },
-        {}
-    );
-
-    const patientInfo: CoverageInformation['patients'] = _.reduce(
-        patients,
-        (map: CoverageInformation['patients'], patient) => {
-            map[patient.uniquePatientKey] = {
-                byGene: {},
-                allGenes: [],
-                notProfiledByGene: {},
-                notProfiledAllGenes: [],
-            };
-            return map;
-        },
-        {}
-    );
-
-    const genePanelDataWithGenePanelId: GenePanelData[] = [];
-    for (const gpData of genePanelData) {
-        const sampleSequencingInfo = sampleInfo[gpData.uniqueSampleKey];
-        const patientSequencingInfo = patientInfo[gpData.uniquePatientKey];
-        const genePanelId = gpData.genePanelId;
-
-        if (gpData.profiled) {
-            if (genePanelId) {
-                if (genePanelToGenes[genePanelId]) {
-                    // add gene panel data to record particular genes sequenced
-                    for (const gene of genePanelToGenes[genePanelId]) {
-                        sampleSequencingInfo.byGene[gene.hugoGeneSymbol] =
-                            sampleSequencingInfo.byGene[gene.hugoGeneSymbol] ||
-                            [];
-                        sampleSequencingInfo.byGene[gene.hugoGeneSymbol].push(
-                            gpData
-                        );
-
-                        patientSequencingInfo.byGene[gene.hugoGeneSymbol] =
-                            patientSequencingInfo.byGene[gene.hugoGeneSymbol] ||
-                            [];
-                        patientSequencingInfo.byGene[gene.hugoGeneSymbol].push(
-                            gpData
-                        );
-                    }
-                    // Add to list for more processing later
-                    genePanelDataWithGenePanelId.push(gpData);
-                }
-            } else {
-                // otherwise, all genes are profiled
-                sampleSequencingInfo.allGenes.push(gpData);
-                patientSequencingInfo.allGenes.push(gpData);
-            }
-        } else {
-            sampleSequencingInfo.notProfiledAllGenes.push(gpData);
-            patientSequencingInfo.notProfiledAllGenes.push(gpData);
-        }
-    }
-    // Record which of the queried genes are not profiled by gene panels
-    for (const gpData of genePanelDataWithGenePanelId) {
-        const sampleSequencingInfo = sampleInfo[gpData.uniqueSampleKey];
-        const patientSequencingInfo = patientInfo[gpData.uniquePatientKey];
-
-        for (const queryGene of genes) {
-            if (!sampleSequencingInfo.byGene[queryGene.hugoGeneSymbol]) {
-                sampleSequencingInfo.notProfiledByGene[
-                    queryGene.hugoGeneSymbol
-                ] =
-                    sampleSequencingInfo.notProfiledByGene[
-                        queryGene.hugoGeneSymbol
-                    ] || [];
-                sampleSequencingInfo.notProfiledByGene[
-                    queryGene.hugoGeneSymbol
-                ].push(gpData);
-            }
-            if (!patientSequencingInfo.byGene[queryGene.hugoGeneSymbol]) {
-                patientSequencingInfo.notProfiledByGene[
-                    queryGene.hugoGeneSymbol
-                ] =
-                    patientSequencingInfo.notProfiledByGene[
-                        queryGene.hugoGeneSymbol
-                    ] || [];
-                patientSequencingInfo.notProfiledByGene[
-                    queryGene.hugoGeneSymbol
-                ].push(gpData);
-            }
-        }
-    }
-    return {
-        samples: sampleInfo,
-        patients: patientInfo,
-    };
-}
-
-export function annotateMolecularDatum(
-    molecularDatum: NumericGeneMolecularData,
-    getOncoKbCnaAnnotationForOncoprint: (
-        datum: NumericGeneMolecularData
-    ) => IndicatorQueryResp | undefined,
-    molecularProfileIdToMolecularProfile: {
-        [molecularProfileId: string]: MolecularProfile;
-    },
-    entrezGeneIdToGene: { [entrezGeneId: number]: Gene }
-): AnnotatedNumericGeneMolecularData {
-    const hugoGeneSymbol =
-        entrezGeneIdToGene[molecularDatum.entrezGeneId].hugoGeneSymbol;
-    let oncogenic = '';
-    if (
-        molecularProfileIdToMolecularProfile[molecularDatum.molecularProfileId]
-            .molecularAlterationType === 'COPY_NUMBER_ALTERATION'
-    ) {
-        const oncoKbDatum = getOncoKbCnaAnnotationForOncoprint(molecularDatum);
-        if (oncoKbDatum) {
-            oncogenic = getOncoKbOncogenic(oncoKbDatum);
-        }
-    }
-    return Object.assign(
-        { oncoKbOncogenic: oncogenic, hugoGeneSymbol },
-        molecularDatum
-    );
-}
 
 export async function fetchQueriedStudies(
     allPhysicalStudies: { [id: string]: CancerStudy },
@@ -576,7 +401,8 @@ export function getSampleAlteredMap(
     oqlQuery: string,
     coverageInformation: CoverageInformation,
     selectedMolecularProfileIds: string[],
-    studyToMolecularProfiles: _.Dictionary<MolecularProfile[]>
+    studyToMolecularProfiles: _.Dictionary<MolecularProfile[]>,
+    defaultOQLQueryAlterations: Alteration[] | false
 ) {
     const result: SampleAlteredMap = {};
     filteredAlterationData.forEach((element, key) => {
@@ -617,7 +443,12 @@ export function getSampleAlteredMap(
                     .map(sample => sample.uniqueSampleKey)
             );
             result[
-                getSingleGeneResultKey(key, oqlQuery, notGroupedOql)
+                getSingleGeneResultKey(
+                    key,
+                    oqlQuery,
+                    notGroupedOql,
+                    defaultOQLQueryAlterations
+                )
             ] = samples.map((sample: Sample) => {
                 if (sample.uniqueSampleKey in unProfiledSampleKeysMap) {
                     return AlteredStatus.UNPROFILED;
@@ -693,12 +524,16 @@ export function getSampleAlteredMap(
 export function getSingleGeneResultKey(
     key: number,
     oqlQuery: string,
-    notGroupedOql: OQLLineFilterOutput<AnnotatedExtendedAlteration>
+    notGroupedOql: OQLLineFilterOutput<AnnotatedExtendedAlteration>,
+    defaultOQLQueryAlterations: Alteration[] | false
 ) {
-    //only gene
+    // if oql for gene is the same as the default OQL, it means probably
+    //  no oql was specified, so just show the gene
     if (
-        (oql_parser.parse(oqlQuery)![key] as oql_parser.SingleGeneQuery)
-            .alterations === false
+        _.isEqual(
+            notGroupedOql.parsed_oql_line.alterations,
+            defaultOQLQueryAlterations
+        )
     ) {
         return notGroupedOql.gene;
     }
@@ -714,6 +549,29 @@ export function getMultipleGeneResultKey(
     return groupedOql.label
         ? groupedOql.label
         : _.map(groupedOql.list, data => data.gene).join(' / ');
+}
+
+export function calculateQValuesAndSortEnrichmentData<
+    T extends { pValue: number; qValue?: number }
+>(data: T[], sortFunction: (data: any[]) => any[]): any[] {
+    const dataWithpValue: T[] = [];
+    const dataWithoutpValue: T[] = [];
+    data.forEach(datum => {
+        if (datum.pValue === undefined) {
+            dataWithoutpValue.push(datum);
+        } else {
+            dataWithpValue.push(datum);
+        }
+    });
+
+    const sortedByPValue = _.sortBy(dataWithpValue, c => c.pValue);
+    const qValues = calculateQValues(sortedByPValue.map(c => c.pValue));
+
+    qValues.forEach((qValue, index) => {
+        sortedByPValue[index].qValue = qValue;
+    });
+
+    return sortFunction([...sortedByPValue, ...dataWithoutpValue]);
 }
 
 export function makeEnrichmentDataPromise<
@@ -773,27 +631,10 @@ export function makeEnrichmentDataPromise<
                     if (refGene) d.cytoband = refGene.cytoband;
                 }
 
-                const dataWithpValue: T[] = [];
-                const dataWithoutpValue: T[] = [];
-                data.forEach(datum => {
-                    datum.pValue === undefined
-                        ? dataWithoutpValue.push(datum)
-                        : dataWithpValue.push(datum);
-                });
-
-                const sortedByPValue = _.sortBy(dataWithpValue, c => c.pValue);
-                const qValues = calculateQValues(
-                    sortedByPValue.map(c => c.pValue)
+                return calculateQValuesAndSortEnrichmentData(
+                    data,
+                    sortEnrichmentData
                 );
-
-                qValues.forEach((qValue, index) => {
-                    sortedByPValue[index].qValue = qValue;
-                });
-
-                return sortEnrichmentData([
-                    ...sortedByPValue,
-                    ...dataWithoutpValue,
-                ]);
             } else {
                 return [];
             }
@@ -803,6 +644,41 @@ export function makeEnrichmentDataPromise<
 
 function sortEnrichmentData(data: any[]): any[] {
     return _.sortBy(data, ['pValue', 'hugoGeneSymbol']);
+}
+
+export function makeGenericAssayEnrichmentDataPromise(params: {
+    resultViewPageStore?: ResultsViewPageStore;
+    await: MobxPromise_await;
+    getSelectedProfileMap: () => { [studyId: string]: MolecularProfile };
+    fetchData: () => Promise<GenericAssayEnrichment[]>;
+}): MobxPromise<GenericAssayEnrichmentWithQ[]> {
+    return remoteData({
+        await: () => {
+            const ret = params.await();
+            if (params.resultViewPageStore) {
+                ret.push(params.resultViewPageStore.selectedMolecularProfiles);
+            }
+            return ret;
+        },
+        invoke: async () => {
+            const profileMap = params.getSelectedProfileMap();
+            if (profileMap) {
+                let data = await params.fetchData();
+                return calculateQValuesAndSortEnrichmentData(
+                    data,
+                    sortGenericAssayEnrichmentData
+                );
+            } else {
+                return [];
+            }
+        },
+    });
+}
+
+function sortGenericAssayEnrichmentData(
+    data: GenericAssayEnrichmentWithQ[]
+): GenericAssayEnrichmentWithQ[] {
+    return _.sortBy(data, ['pValue', 'stableId']);
 }
 
 export function fetchPatients(samples: Sample[]) {
@@ -860,4 +736,115 @@ export function parseGenericAssayGroups(
         {}
     );
     return parsedGroups;
+}
+
+export function createDiscreteCopyNumberDataKey(
+    d: NumericGeneMolecularData | DiscreteCopyNumberData
+) {
+    return d.sampleId + '_' + d.molecularProfileId + '_' + d.entrezGeneId;
+}
+
+export function evaluateDiscreteCNAPutativeDriverInfo(
+    cnaDatum: CustomDriverNumericGeneMolecularData,
+    oncoKbDatum: IndicatorQueryResp | undefined | null | false,
+    customDriverAnnotationsActive: boolean,
+    customDriverTierSelection: ObservableMap<string, boolean> | undefined
+) {
+    const oncoKb = oncoKbDatum ? getOncoKbOncogenic(oncoKbDatum) : '';
+
+    // Set driverFilter to true when:
+    // (1) custom drivers active in settings menu
+    // (2) the datum has a custom driver annotation
+    const customDriverBinary: boolean =
+        (customDriverAnnotationsActive &&
+            cnaDatum.driverFilter === 'Putative_Driver') ||
+        false;
+
+    // Set tier information to the tier name when the tiers checkbox
+    // is selected for the corresponding tier of the datum in settings menu.
+    // This forces the CNA to be counted as a driver mutation.
+    const customDriverTier: string | undefined =
+        cnaDatum.driverTiersFilter &&
+        customDriverTierSelection &&
+        customDriverTierSelection.get(cnaDatum.driverTiersFilter)
+            ? cnaDatum.driverTiersFilter
+            : undefined;
+
+    return {
+        oncoKb,
+        customDriverBinary,
+        customDriverTier,
+    };
+}
+
+export function evaluateMutationPutativeDriverInfo(
+    mutation: Mutation,
+    oncoKbDatum: IndicatorQueryResp | undefined | null | false,
+    hotspotAnnotationsActive: boolean,
+    hotspotDriver: boolean,
+    cbioportalCountActive: boolean,
+    cbioportalCountExceeded: boolean,
+    cosmicCountActive: boolean,
+    cosmicCountExceeded: boolean,
+    customDriverAnnotationsActive: boolean,
+    customDriverTierSelection: ObservableMap<string, boolean> | undefined
+) {
+    const oncoKb = oncoKbDatum ? getOncoKbOncogenic(oncoKbDatum) : '';
+    const hotspots = hotspotAnnotationsActive && hotspotDriver;
+    const cbioportalCount = cbioportalCountActive && cosmicCountExceeded;
+    const cosmicCount = cosmicCountActive && cosmicCountExceeded;
+
+    // Set driverFilter to true when:
+    // (1) custom drivers active in settings menu
+    // (2) the datum has a custom driver annotation
+    const customDriverBinary: boolean = !!(
+        customDriverAnnotationsActive &&
+        mutation.driverFilter === 'Putative_Driver'
+    );
+
+    // Set tier information to the tier name when the tiers checkbox
+    // is selected for the corresponding tier of the datum in settings menu.
+    // This forces the Mutation to be counted as a driver mutation.
+    const customDriverTier: string | undefined =
+        mutation.driverTiersFilter &&
+        customDriverTierSelection &&
+        customDriverTierSelection.get(mutation.driverTiersFilter)
+            ? mutation.driverTiersFilter
+            : undefined;
+
+    return {
+        oncoKb,
+        hotspots,
+        cbioportalCount,
+        cosmicCount,
+        customDriverBinary,
+        customDriverTier,
+    };
+}
+
+export function makeCustomChartData(
+    attribute: ExtendedClinicalAttribute,
+    chartGroups: CustomGroup[],
+    sampleMap: ComplexKeyMap<Sample>
+): ClinicalData[] {
+    const ret = [];
+    for (const group of chartGroups) {
+        const value = group.name;
+        for (const sampleId of group.sampleIdentifiers) {
+            const sample = sampleMap.get(sampleId, ['sampleId', 'studyId']);
+            if (sample) {
+                ret.push({
+                    clinicalAttribute: attribute as ClinicalAttribute,
+                    clinicalAttributeId: attribute.clinicalAttributeId,
+                    value,
+                    patientId: sampleId.patientId,
+                    sampleId: sampleId.sampleId,
+                    studyId: sampleId.studyId,
+                    uniquePatientKey: sample.uniquePatientKey,
+                    uniqueSampleKey: sample.uniqueSampleKey,
+                });
+            }
+        }
+    }
+    return ret;
 }

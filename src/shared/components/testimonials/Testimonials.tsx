@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { observable, action } from 'mobx';
+import { observable, action, makeObservable } from 'mobx';
 import { observer } from 'mobx-react';
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 
 import styles from './testimonials.module.scss';
 
@@ -20,6 +20,7 @@ export class TestimonialStore {
     }
 
     constructor() {
+        makeObservable(this);
         this.testimonialIndex = 0;
         this.testimonials = [
             {
@@ -82,6 +83,7 @@ export class TestimonialStore {
             },
         ];
         setInterval(() => this.incrementIndex(), 15000);
+        makeObservable(this);
     }
 }
 

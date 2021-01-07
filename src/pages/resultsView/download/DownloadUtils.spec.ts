@@ -16,6 +16,7 @@ import {
     decideMolecularProfileSortingOrder,
 } from './DownloadUtils';
 import { AnnotatedMutation, ExtendedAlteration } from '../ResultsViewPageStore';
+import oql_parser, { SingleGeneQuery } from 'shared/lib/oql/oql-parser';
 
 describe('DownloadUtils', () => {
     const genes = [
@@ -141,7 +142,7 @@ describe('DownloadUtils', () => {
             },
             studyId: 'msk_impact_2017',
             center: 'NA',
-            mutationStatus: 'NA',
+            mutationStatus: 'Germline',
             validationStatus: 'NA',
             tumorAltCount: 425,
             tumorRefCount: 7757,
@@ -283,6 +284,9 @@ describe('DownloadUtils', () => {
             oql: {
                 gene: 'EGFR',
                 oql_line: 'EGFR: AMP HOMDEL MUT FUSION;',
+                parsed_oql_line: oql_parser.parse(
+                    'EGFR: AMP HOMDEL MUT FUSION;'
+                )![0],
                 data: sampleDataWithBothMutationAndFusion,
             },
         },
@@ -299,6 +303,9 @@ describe('DownloadUtils', () => {
             oql: {
                 gene: 'PTEN',
                 oql_line: 'PTEN: AMP HOMDEL MUT FUSION;',
+                parsed_oql_line: oql_parser.parse(
+                    'PTEN: AMP HOMDEL MUT FUSION;'
+                )![0],
                 data: [mrnaDataForTCGAEEA20C, proteinDataForTCGAEEA20C],
             },
         },
@@ -312,6 +319,9 @@ describe('DownloadUtils', () => {
             oql: {
                 gene: 'TP53',
                 oql_line: 'TP53: AMP HOMDEL MUT FUSION;',
+                parsed_oql_line: oql_parser.parse(
+                    'TP53: AMP HOMDEL MUT FUSION;'
+                )![0],
                 data: [],
             },
         },
@@ -465,7 +475,10 @@ describe('DownloadUtils', () => {
             );
             assert.deepEqual(
                 oqlData.mutation,
-                ['G598A', 'G239C'],
+                [
+                    { proteinChange: 'G598A', isGermline: true },
+                    { proteinChange: 'G239C', isGermline: false },
+                ],
                 'mutation data is correct for the sample with mutation and fusion data'
             );
         });
@@ -574,7 +587,14 @@ describe('DownloadUtils', () => {
             const downloadData = generateMutationDownloadData(
                 sampleAlterationDataByGene,
                 samples,
-                genes
+                genes,
+                (uniqueSampleKey: string, study: string, gene: string) => {
+                    return !(
+                        uniqueSampleKey ===
+                            'VENHQS1FRS1BMjBDLTA2OnNrY21fdGNnYQ' &&
+                        gene === 'PTEN'
+                    );
+                }
             );
 
             const expectedResult = [
@@ -582,11 +602,11 @@ describe('DownloadUtils', () => {
                 [
                     'msk_impact_2017',
                     'P-0000378-T01-IM3',
-                    'NA',
-                    'NA',
-                    'G598A EGFR-intragenic G239C',
+                    'WT',
+                    'WT',
+                    'G598A [germline] EGFR-intragenic G239C',
                 ],
-                ['skcm_tcga', 'TCGA-EE-A20C-06', 'NA', 'NA', 'NA'],
+                ['skcm_tcga', 'TCGA-EE-A20C-06', 'NS', 'WT', 'WT'],
             ];
 
             assert.deepEqual(
@@ -614,13 +634,20 @@ describe('DownloadUtils', () => {
             const downloadData = generateDownloadData(
                 sampleAlterationDataByGene,
                 samples,
-                genes
+                genes,
+                (uniqueSampleKey: string, study: string, gene: string) => {
+                    return !(
+                        uniqueSampleKey ===
+                            'VENHQS1FRS1BMjBDLTA2OnNrY21fdGNnYQ' &&
+                        gene === 'EGFR'
+                    );
+                }
             );
 
             const expectedResult = [
                 ['STUDY_ID', 'SAMPLE_ID', 'PTEN', 'TP53', 'EGFR'],
                 ['msk_impact_2017', 'P-0000378-T01-IM3', 'NA', 'NA', 'NA'],
-                ['skcm_tcga', 'TCGA-EE-A20C-06', '2.4745', 'NA', 'NA'],
+                ['skcm_tcga', 'TCGA-EE-A20C-06', '2.4745', 'NA', 'NP'],
             ];
 
             assert.deepEqual(
@@ -646,13 +673,20 @@ describe('DownloadUtils', () => {
             const downloadData = generateDownloadData(
                 sampleAlterationDataByGene,
                 samples,
-                genes
+                genes,
+                (uniqueSampleKey: string, study: string, gene: string) => {
+                    return !(
+                        uniqueSampleKey ===
+                            'VENHQS1FRS1BMjBDLTA2OnNrY21fdGNnYQ' &&
+                        gene === 'TP53'
+                    );
+                }
             );
 
             const expectedResult = [
                 ['STUDY_ID', 'SAMPLE_ID', 'PTEN', 'TP53', 'EGFR'],
                 ['msk_impact_2017', 'P-0000378-T01-IM3', 'NA', 'NA', 'NA'],
-                ['skcm_tcga', 'TCGA-EE-A20C-06', '2.5406', 'NA', 'NA'],
+                ['skcm_tcga', 'TCGA-EE-A20C-06', '2.5406', 'NP', 'NA'],
             ];
 
             assert.deepEqual(
@@ -678,12 +712,19 @@ describe('DownloadUtils', () => {
             const downloadData = generateDownloadData(
                 sampleAlterationDataByGene,
                 samples,
-                genes
+                genes,
+                (uniqueSampleKey: string, study: string, gene: string) => {
+                    return !(
+                        uniqueSampleKey ===
+                            'UC0wMDAwMzc4LVQwMS1JTTM6bXNrX2ltcGFjdF8yMDE3' &&
+                        gene !== 'PTEN'
+                    );
+                }
             );
 
             const expectedResult = [
                 ['STUDY_ID', 'SAMPLE_ID', 'PTEN', 'TP53', 'EGFR'],
-                ['msk_impact_2017', 'P-0000378-T01-IM3', 'NA', 'NA', 'NA'],
+                ['msk_impact_2017', 'P-0000378-T01-IM3', 'NA', 'NP', 'NP'],
                 ['skcm_tcga', 'TCGA-EE-A20C-06', 'NA', '-1', 'NA'],
             ];
 
@@ -736,6 +777,9 @@ describe('DownloadUtils', () => {
 
             const caseAlterationData = generateCaseAlterationData(
                 'EGFR TP53 PTEN',
+                (oql_parser.parse(
+                    'DUMMYGENE: AMP HOMDEL MUT FUSION'
+                )![0] as SingleGeneQuery).alterations,
                 selectedMolecularProfiles,
                 caseAggregatedDataByOQLLine,
                 caseAggregatedDataByOQLLine,
@@ -790,6 +834,9 @@ describe('DownloadUtils', () => {
 
             const caseAlterationData = generateCaseAlterationData(
                 'EGFR TP53 PTEN',
+                (oql_parser.parse(
+                    'DUMMYGENE: AMP HOMDEL MUT FUSION'
+                )![0] as SingleGeneQuery).alterations,
                 selectedMolecularProfiles,
                 caseAggregatedDataByOQLLine,
                 caseAggregatedDataByOQLLine,
@@ -819,7 +866,10 @@ describe('DownloadUtils', () => {
             );
             assert.deepEqual(
                 caseAlterationData[0].oqlData['EGFR'].mutation,
-                ['G598A', 'G239C'],
+                [
+                    { proteinChange: 'G598A', isGermline: true },
+                    { proteinChange: 'G239C', isGermline: false },
+                ],
                 'mutation data is correct for the sample key UC0wMDAwMzc4LVQwMS1JTTM6bXNrX2ltcGFjdF8yMDE3'
             );
             assert.deepEqual(

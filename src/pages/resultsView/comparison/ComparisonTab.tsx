@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { observer } from 'mobx-react';
-import { action, computed, observable } from 'mobx';
+import { action, computed, observable, makeObservable } from 'mobx';
 import autobind from 'autobind-decorator';
 import { MakeMobxView } from '../../../shared/components/MobxView';
 import { MSKTab, MSKTabs } from '../../../shared/components/MSKTabs/MSKTabs';
@@ -30,6 +30,8 @@ import styles from '../../groupComparison/styles.module.scss';
 import GroupSelector from '../../groupComparison/groupSelector/GroupSelector';
 import CaseFilterWarning from '../../../shared/components/banners/CaseFilterWarning';
 import MethylationEnrichments from 'pages/groupComparison/MethylationEnrichments';
+import GenericAssayEnrichments from 'pages/groupComparison/GenericAssayEnrichments';
+import { deriveDisplayTextFromGenericAssayType } from '../plots/PlotsTabUtils';
 
 export interface IComparisonTabProps {
     urlWrapper: ResultsViewURLWrapper;
@@ -46,6 +48,7 @@ export default class ComparisonTab extends React.Component<
 
     constructor(props: IComparisonTabProps) {
         super(props);
+        makeObservable(this);
         (window as any).comparisonTab = this;
         this.store = new ResultsViewComparisonStore(
             this.props.appStore,
@@ -105,8 +108,7 @@ export default class ComparisonTab extends React.Component<
         },
     });
 
-    @autobind
-    @action
+    @action.bound
     public onOverlapStrategySelect(option: any) {
         trackEvent({
             category: 'resultsView',
@@ -126,6 +128,7 @@ export default class ComparisonTab extends React.Component<
             this.store.proteinEnrichmentProfiles,
             this.store.methylationEnrichmentProfiles,
             this.store.survivalClinicalDataExists,
+            this.store.genericAssayEnrichmentProfilesGroupByGenericAssayType,
         ],
         render: () => {
             return (
@@ -241,6 +244,34 @@ export default class ComparisonTab extends React.Component<
                             />
                         </MSKTab>
                     )}
+                    {this.store.showGenericAssayTab &&
+                        _.keys(
+                            this.store
+                                .genericAssayEnrichmentProfilesGroupByGenericAssayType
+                                .result
+                        ).map(genericAssayType => {
+                            return (
+                                <MSKTab
+                                    id={`${
+                                        ResultsViewComparisonSubTab.GENERIC_ASSAY_PREFIX
+                                    }_${genericAssayType.toLowerCase()}`}
+                                    linkText={deriveDisplayTextFromGenericAssayType(
+                                        genericAssayType
+                                    )}
+                                    anchorClassName={
+                                        this.store.genericAssayTabUnavailable
+                                            ? 'greyedOut'
+                                            : ''
+                                    }
+                                >
+                                    <GenericAssayEnrichments
+                                        store={this.store}
+                                        genericAssayType={genericAssayType}
+                                        resultsViewMode={true}
+                                    />
+                                </MSKTab>
+                            );
+                        })}
                 </MSKTabs>
             );
         },

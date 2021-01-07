@@ -6,6 +6,7 @@ import {
     IReactionDisposer,
     observable,
     reaction,
+    makeObservable,
 } from 'mobx';
 import { observer, Observer } from 'mobx-react';
 import './styles.scss';
@@ -81,6 +82,7 @@ type LazyMobXTableProps<T> = {
     initialItemsPerPage?: number;
     itemsLabel?: string;
     itemsLabelPlural?: string;
+    initialFilterString?: string;
     showFilter?: boolean;
     showFilterClearButton?: boolean;
     showCopyDownload?: boolean;
@@ -242,18 +244,16 @@ function getDownloadObject<T>(columns: Column<T>[], rowData: T) {
             } else {
                 downloadObject.data.push(downloadData);
             }
-        } else {
-            downloadObject.data.push('');
         }
     });
     return downloadObject;
 }
 
 export class LazyMobXTableStore<T> {
-    @observable public filterString: string | undefined;
-    @observable private _itemsLabel: string | undefined;
-    @observable private _itemsLabelPlural: string | undefined;
-    @observable public sortColumn: string;
+    @observable.ref public filterString: string | undefined = undefined;
+    @observable.ref private _itemsLabel: string | undefined = undefined;
+    @observable.ref private _itemsLabelPlural: string | undefined;
+    @observable.ref public sortColumn: string;
     @observable public sortAscending: boolean;
     @observable.ref public columns: Column<T>[];
     @observable public dataStore: ILazyMobXTableApplicationDataStore<T>;
@@ -337,14 +337,9 @@ export class LazyMobXTableStore<T> {
         const tableDownloadData: string[][] = [];
 
         // add header (including hidden columns)
-        tableDownloadData[0] = [];
-        this.columns.forEach((column: Column<T>) => {
-            tableDownloadData[0].push(
-                column.headerDownload
-                    ? column.headerDownload(column.name)
-                    : column.name
-            );
-        });
+        tableDownloadData[0] = this.columns
+            .filter(c => c.download)
+            .map(c => (c.headerDownload ? c.headerDownload(c.name) : c.name));
 
         // add rows (including hidden columns). The purpose of this part is to ensure that
         // if any element of rowData contains a column with multiple values, rowData is written as
@@ -732,6 +727,7 @@ export class LazyMobXTableStore<T> {
     }
 
     constructor(lazyMobXTableProps: LazyMobXTableProps<T>) {
+        makeObservable(this);
         this.sortColumn = lazyMobXTableProps.initialSortColumn || '';
         this.sortAscending = lazyMobXTableProps.initialSortDirection !== 'desc'; // default ascending
         this.setProps(lazyMobXTableProps);
@@ -753,6 +749,7 @@ export default class LazyMobXTable<T> extends React.Component<
 > {
     private store: LazyMobXTableStore<T>;
     private handlers: { [fnName: string]: (...args: any[]) => void };
+    private initialFilterTextSet = false;
     private filterInput: HTMLInputElement;
     private filterInputReaction: IReactionDisposer;
     private pageToHighlightReaction: IReactionDisposer;
@@ -765,6 +762,7 @@ export default class LazyMobXTable<T> extends React.Component<
         showColumnVisibility: true,
         showPaginationAtTop: false,
         showCountHeader: false,
+        initialFilterString: '',
     };
 
     public get dataStore() {
@@ -784,7 +782,7 @@ export default class LazyMobXTable<T> extends React.Component<
                 // populate the cache instances with all available data for the lazy loaded columns
                 this.store.downloadDataFetcher
                     .fetchAndCacheAllLazyData()
-                    .then(allLazyData => {
+                    .then(() => {
                         // we don't use allData directly,
                         // we rely on the data cached by the download data fetcher
                         resolve({
@@ -819,6 +817,7 @@ export default class LazyMobXTable<T> extends React.Component<
 
     constructor(props: LazyMobXTableProps<T>) {
         super(props);
+        makeObservable(this);
         this.store = new LazyMobXTableStore<T>(props);
 
         this.handlers = {
@@ -848,6 +847,11 @@ export default class LazyMobXTable<T> extends React.Component<
             },
             filterInputRef: (input: HTMLInputElement) => {
                 this.filterInput = input;
+                if (input && !this.initialFilterTextSet) {
+                    input.value = this.props.initialFilterString!;
+                    this.store.setFilterString(this.props.initialFilterString!);
+                    this.initialFilterTextSet = true;
+                }
             },
         };
         this.getDownloadData = this.getDownloadData.bind(this);
@@ -864,7 +868,7 @@ export default class LazyMobXTable<T> extends React.Component<
         );
         this.pageToHighlightReaction = reaction(
             () => this.store.firstHighlightedRowIndex,
-            (index: number) => {
+            () => {
                 if (this.props.pageToHighlight) {
                     this.store.pageToRowIndex(
                         this.store.firstHighlightedRowIndex

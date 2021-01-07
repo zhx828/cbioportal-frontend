@@ -7,6 +7,7 @@ import {
     toJS,
     reaction,
     IReactionDisposer,
+    makeObservable,
 } from 'mobx';
 import autobind from 'autobind-decorator';
 import _ from 'lodash';
@@ -25,12 +26,14 @@ import {
 import { SortDirection } from '../../../shared/components/lazyMobXTable/LazyMobXTable';
 import { EllipsisTextTooltip } from 'cbioportal-frontend-commons';
 import { DEFAULT_SORTING_COLUMN } from '../StudyViewConfig';
+import ComparisonVsIcon from 'shared/components/ComparisonVsIcon';
 
 export interface IClinicalTableProps {
     data: ClinicalDataCountSummary[];
     filters: string[];
     highlightedRow?: (value: string | undefined) => void;
     onUserSelection: (values: string[]) => void;
+    openComparisonPage?: () => void;
     label?: string;
     labelDescription?: string;
     patientAttribute: boolean;
@@ -54,6 +57,11 @@ export default class ClinicalTable extends React.Component<
     IClinicalTableProps,
     {}
 > {
+    constructor(props: IClinicalTableProps) {
+        super(props);
+        makeObservable(this);
+    }
+
     @observable private sortBy: string = DEFAULT_SORTING_COLUMN;
     @observable private sortDirection: SortDirection;
 
@@ -301,11 +309,37 @@ export default class ClinicalTable extends React.Component<
         );
     }
 
-    @autobind
-    @action
+    @action.bound
     afterSorting(sortBy: string, sortDirection: SortDirection) {
         this.sortBy = sortBy;
         this.sortDirection = sortDirection;
+    }
+
+    @computed get selectedClinicalValues() {
+        const filtersMap = _.keyBy(this.props.filters);
+        return this.props.data.filter(d => d.value in filtersMap);
+    }
+
+    @computed get extraButtons() {
+        if (this.props.openComparisonPage) {
+            return [
+                {
+                    content: (
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <ComparisonVsIcon
+                                width={16}
+                                style={{ marginRight: 5 }}
+                            />
+                            Compare
+                        </div>
+                    ),
+                    onClick: this.props.openComparisonPage,
+                    isDisabled: () => this.selectedClinicalValues.length === 1, // no selection means compare all, so only problem would be if exactly 1 is selected
+                },
+            ];
+        } else {
+            return [];
+        }
     }
 
     render() {
@@ -317,7 +351,9 @@ export default class ClinicalTable extends React.Component<
                 columns={this.columns}
                 addAll={this.addAll}
                 removeAll={this.removeAll}
-                showAddRemoveAllButtons={this.props.showAddRemoveAllButtons}
+                numberOfSelectedRows={this.props.filters.length}
+                showAddRemoveAllButton={this.props.showAddRemoveAllButtons}
+                extraButtons={this.extraButtons}
                 sortBy={this.sortBy}
                 sortDirection={this.sortDirection}
                 afterSorting={this.afterSorting}

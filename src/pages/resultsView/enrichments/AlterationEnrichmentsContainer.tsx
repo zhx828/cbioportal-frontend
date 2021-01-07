@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 import { observer } from 'mobx-react';
 import numeral from 'numeral';
 import { ResultsViewPageStore } from '../ResultsViewPageStore';
-import { observable, computed, action } from 'mobx';
+import { observable, computed, action, makeObservable } from 'mobx';
 import AlterationEnrichmentTable, {
     AlterationEnrichmentTableColumnType,
 } from 'pages/resultsView/enrichments/AlterationEnrichmentsTable';
@@ -51,6 +51,11 @@ export default class AlterationEnrichmentContainer extends React.Component<
     IAlterationEnrichmentContainerProps,
     {}
 > {
+    constructor(props: any) {
+        super(props);
+        makeObservable(this);
+    }
+
     static defaultProps: Partial<IAlterationEnrichmentContainerProps> = {
         showCNAInTable: false,
         alteredVsUnalteredMode: true,
@@ -92,8 +97,18 @@ export default class AlterationEnrichmentContainer extends React.Component<
             this.data,
             this._enrichedGroups,
             this.significanceFilter,
-            this.selectedGenes
+            this.filterByGene
         );
+    }
+
+    @autobind
+    private filterByGene(hugoGeneSymbol: string) {
+        if (this.selectedGenes) {
+            return this.selectedGenes.includes(hugoGeneSymbol);
+        } else {
+            // no need to filter the data since there is no selection
+            return true;
+        }
     }
 
     @autobind
@@ -116,14 +131,12 @@ export default class AlterationEnrichmentContainer extends React.Component<
         //noop
     }
 
-    @autobind
-    @action
+    @action.bound
     private onSelection(hugoGeneSymbols: string[]) {
         this.selectedGenes = hugoGeneSymbols;
     }
 
-    @autobind
-    @action
+    @action.bound
     private onSelectionCleared() {
         this.selectedGenes = null;
     }
@@ -346,8 +359,7 @@ export default class AlterationEnrichmentContainer extends React.Component<
         return _.keyBy(this.selectedGenes || []);
     }
 
-    @autobind
-    @action
+    @action.bound
     onChange(values: { value: string }[]) {
         this._enrichedGroups = _.map(values, datum => datum.value);
     }
@@ -418,7 +430,7 @@ export default class AlterationEnrichmentContainer extends React.Component<
                             }
                             xAxisDomain={15}
                             xAxisTickValues={[-10, 0, 10]}
-                            selectedGenesSet={this.selectedGenesSet}
+                            selectedSet={this.selectedGenesSet}
                             onGeneNameClick={this.onGeneNameClick}
                             onSelection={this.onSelection}
                             onSelectionCleared={this.onSelectionCleared}
@@ -537,8 +549,8 @@ export default class AlterationEnrichmentContainer extends React.Component<
                         </div>
                         <div style={{ width: 250, marginRight: 7 }}>
                             <CheckedSelect
-                                name={'enrichedGroupsSelector'}
-                                placeholder={'Select enriched groups'}
+                                name={'groupsSelector'}
+                                placeholder={'Enriched in ...'}
                                 onChange={this.onChange}
                                 options={this.options}
                                 value={this.selectedValues}

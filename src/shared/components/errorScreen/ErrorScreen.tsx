@@ -4,7 +4,8 @@ import { observer } from 'mobx-react';
 import './errorScreen.scss';
 import AppConfig from 'appConfig';
 import { buildCBioPortalPageUrl } from 'shared/api/urls';
-import { computed } from 'mobx';
+import { computed, makeObservable } from 'mobx';
+import autobind from 'autobind-decorator';
 var Clipboard = require('clipboard');
 
 interface IErrorScreenProps {
@@ -19,15 +20,20 @@ export default class ErrorScreen extends React.Component<
     IErrorScreenProps,
     {}
 > {
-    copyToClip: HTMLButtonElement | null;
-
-    componentDidMount(): void {
-        new Clipboard(this.copyToClip, {
-            text: function() {
-                return JSON.stringify(this.errorLog);
-            }.bind(this),
-            container: this.copyToClip,
-        });
+    constructor(props: IErrorScreenProps) {
+        super(props);
+        makeObservable(this);
+    }
+    @autobind
+    copyToClipRef(copyToClip: HTMLButtonElement | null) {
+        if (copyToClip) {
+            new Clipboard(copyToClip, {
+                text: function() {
+                    return JSON.stringify(this.errorLog);
+                }.bind(this),
+                container: copyToClip,
+            });
+        }
     }
 
     @computed get errorLog() {
@@ -74,7 +80,7 @@ export default class ErrorScreen extends React.Component<
 
                 {this.props.body && <div>{this.props.body}</div>}
 
-                {AppConfig.serverConfig.skin_email_contact && (
+                {this.errorLog && AppConfig.serverConfig.skin_email_contact && (
                     <div style={{ marginTop: 20 }}>
                         <p style={{ marginBottom: 20 }}>
                             Please contact us at{' '}
@@ -105,7 +111,7 @@ export default class ErrorScreen extends React.Component<
                     <div style={{ marginTop: 20 }} className="form-group">
                         <button
                             style={{ marginBottom: 5 }}
-                            ref={el => (this.copyToClip = el)}
+                            ref={this.copyToClipRef}
                             className={'btn btn-xs'}
                         >
                             Copy Error Log to Clipboard

@@ -19,9 +19,15 @@ import {
 import { buildCBioPortalPageUrl } from 'shared/api/urls';
 import ErrorScreen from 'shared/components/errorScreen/ErrorScreen';
 import { ServerConfigHelpers } from 'config/config';
-import StudyViewWarning, {
+import {
     shouldShowStudyViewWarning,
-} from 'pages/studyView/studyPageHeader/studyViewWarning/StudyViewWarning';
+    StudyAgreement,
+} from 'appShell/App/usageAgreements/StudyAgreement';
+import {
+    GenieAgreement,
+    shouldShowGenieWarning,
+} from 'appShell/App/usageAgreements/GenieAgreement';
+import makeRoutes from 'routes';
 
 interface IContainerProps {
     location: Location;
@@ -93,10 +99,12 @@ export default class Container extends React.Component<IContainerProps, {}> {
                     />
                 </Helmet>
 
-                <div className="pageTopContainer">
+                <div id="pageTopContainer" className="pageTopContainer">
                     <UserMessager />
 
-                    {shouldShowStudyViewWarning() && <StudyViewWarning />}
+                    {shouldShowStudyViewWarning() && <StudyAgreement />}
+
+                    {shouldShowGenieWarning() && <GenieAgreement />}
 
                     <div className="contentWidth">
                         <PortalHeader appStore={this.appStore} />
@@ -128,7 +136,7 @@ export default class Container extends React.Component<IContainerProps, {}> {
                     </Then>
                     <Else>
                         <div className="contentWrapper">
-                            {this.props.children}
+                            {makeRoutes(this.routingStore)}
                         </div>
                     </Else>
                 </If>

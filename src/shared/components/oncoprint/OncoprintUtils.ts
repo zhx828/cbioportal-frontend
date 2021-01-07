@@ -28,7 +28,7 @@ import {
     IQueriedCaseData,
     IQueriedMergedTrackCaseData,
 } from '../../../pages/resultsView/ResultsViewPageStore';
-import { CoverageInformation } from '../../../pages/resultsView/ResultsViewPageStoreUtils';
+import { CoverageInformation } from '../../lib/GenePanelUtils';
 import { remoteData } from 'cbioportal-frontend-commons';
 import {
     makeClinicalTrackData,
@@ -59,7 +59,10 @@ import {
 } from '../../cache/ClinicalDataCache';
 import { RESERVED_CLINICAL_VALUE_COLORS } from 'shared/lib/Colors';
 import { ISelectOption } from './controls/OncoprintControls';
-import { NOT_APPLICABLE_VALUE } from 'shared/lib/GenericAssayUtils/GenericAssayCommonUtils';
+import {
+    COMMON_GENERIC_ASSAY_PROPERTY,
+    getGenericAssayMetaPropertyOrDefault,
+} from 'shared/lib/GenericAssayUtils/GenericAssayCommonUtils';
 import ifNotDefined from '../../lib/ifNotDefined';
 
 interface IGenesetExpansionMap {
@@ -87,7 +90,7 @@ function makeGenesetHeatmapExpandHandler(
                 molecularProfileId: zScoreGeneticProfileId,
             })
         );
-        runInAction('genesetHeatmapExpansion', () => {
+        runInAction(() => {
             const list =
                 oncoprint.expansionsByGenesetHeatmapTrackKey.get(track_key) ||
                 [];
@@ -236,6 +239,31 @@ export function getHeatmapTrackRuleSetParams(
     };
 }
 
+export const legendColorDarkBlue = [0, 114, 178, 1] as [
+    number,
+    number,
+    number,
+    number
+];
+export const legendColorLightBlue = [204, 236, 255, 1] as [
+    number,
+    number,
+    number,
+    number
+];
+export const legendColorDarkRed = [213, 94, 0, 1] as [
+    number,
+    number,
+    number,
+    number
+];
+export const legendColorLightRed = [255, 226, 204, 1] as [
+    number,
+    number,
+    number,
+    number
+];
+
 export function getGenericAssayTrackRuleSetParams(
     trackSpec: IHeatmapTrackSpec
 ): RuleSetParams {
@@ -246,38 +274,20 @@ export function getGenericAssayTrackRuleSetParams(
     let category_to_color: { [d: string]: string } | undefined;
 
     // - Legends for generic assay entities can be configured in two ways:
-    //      1. Larger values are `better` and appear at the right side of the legend (a.k.a. ASC sort order)
-    //      2. Smaller values are `better` and appeat at the right side of the legend (a.k.a. DESC sort order)
-    // - The pivot threshold denotes the compound concentration that is the arbitrary boundary between effective (in red)
-    // and ineffective (in blue) concentrations. Blue and red gradient to black color at the pivotThreshold value.
-    // - The most extreme value in the legend is should be the largest value in the current track group. It is passed in
-    //  along side other track specs (if possible)
-    // - When the most extreme value does not reach the pivotThreshold the pivotThreshold is used a most extreme value
+    //      1. Smaller values are `important` and darker blue (a.k.a. ASC sort order)
+    //      2. Larger values are `important` and darker blue (a.k.a. DESC sort order)
+    // - The pivot threshold denotes an arbitrary boundary between important (in red)
+    //   and unimportant (in blue) values. When a pivot threshold is defined blue
+    //   and red gradient to white at the pivotThreshold value.
+    // - The most extreme value in the legend is should be the largest value in the
+    //   current track group. It is passed in alongside other track specs (if possible).
+    // - When the most extreme value does not reach the pivotThreshold (if defined),
+    //   the pivotThreshold is included in the legend as the most extreme value.
 
     legend_label = trackSpec.legendLabel || `${trackSpec.molecularProfileName}`;
     const dataPoints = trackSpec.data;
     const pivotThreshold = trackSpec.pivotThreshold;
     const sortOrder = trackSpec.sortOrder;
-
-    const colorBetterDark = [0, 114, 178, 1] as [
-        number,
-        number,
-        number,
-        number
-    ];
-    const colorBetterLight = [204, 236, 255, 1] as [
-        number,
-        number,
-        number,
-        number
-    ];
-    const colorWorseDark = [213, 94, 0, 1] as [number, number, number, number];
-    const colorWorseLight = [255, 226, 204, 1] as [
-        number,
-        number,
-        number,
-        number
-    ];
     const categoryColorOptions = [
         'rgba(240,228,66,1)',
         'rgba(0,158,115,1)',
@@ -306,29 +316,29 @@ export function getGenericAssayTrackRuleSetParams(
         minValue = Math.min(minValue, pivotThreshold);
     }
 
-    const pivotOutsideValueRange =
-        pivotThreshold &&
-        (maxValue === pivotThreshold || minValue === pivotThreshold);
-
-    // when all observed values are negative or positive
-    // assume that 0 should be used in the legend
+    // When all observed values are negative or positive
+    // assume that 0 should be used in the legend.
     const rightBoundaryValue = Math.max(0, maxValue);
     const leftBoundaryValue = Math.min(0, minValue);
-    value_range = [leftBoundaryValue, rightBoundaryValue]; // larger concentrations are `better` (ASC)
+    value_range = [leftBoundaryValue, rightBoundaryValue]; // smaller concentrations are more `important` (ASC)
+    value_stop_points = [leftBoundaryValue, rightBoundaryValue];
 
-    // only include the pivotValue in the legend when covered by the current value_range
-    if (pivotThreshold === undefined || pivotOutsideValueRange) {
-        colors = [colorBetterDark, colorBetterLight];
-        value_stop_points = [leftBoundaryValue, rightBoundaryValue];
+    if (pivotThreshold === undefined || maxValue === pivotThreshold) {
+        // all values are smaller than pivot threshold
+        colors = [legendColorDarkBlue, legendColorLightBlue];
+    } else if (minValue === pivotThreshold) {
+        // all values are larger than pivot threshold
+        colors = [legendColorLightRed, legendColorDarkRed];
     } else {
+        // pivot threshold lies in the middle of al values
         colors = [
-            colorBetterDark,
-            colorBetterLight,
-            colorWorseLight,
-            colorWorseDark,
+            legendColorDarkBlue,
+            legendColorLightBlue,
+            legendColorLightRed,
+            legendColorDarkRed,
         ];
         if (pivotThreshold <= leftBoundaryValue) {
-            // when data points do not bracket the pivotThreshold, make an artificial left boundary
+            // when data points do not bracket the pivotThreshold, add an artificial left boundary in the legend
             value_stop_points = [
                 pivotThreshold - (rightBoundaryValue - pivotThreshold),
                 pivotThreshold,
@@ -336,7 +346,7 @@ export function getGenericAssayTrackRuleSetParams(
                 rightBoundaryValue,
             ];
         } else if (pivotThreshold >= rightBoundaryValue) {
-            // when data points do not bracket the pivotThreshold, make an artificial right boundary
+            // when data points do not bracket the pivotThreshold, add an artificial right boundary in the legend
             value_stop_points = [
                 leftBoundaryValue,
                 pivotThreshold,
@@ -354,9 +364,8 @@ export function getGenericAssayTrackRuleSetParams(
     }
 
     if (sortOrder === 'DESC') {
-        // smaller concentrations are `better` (DESC)
-        value_range = _.reverse(value_range);
-        value_stop_points = _.reverse(value_stop_points);
+        // larger concentrations are more `important` (DESC)
+        colors = _.reverse(colors);
     }
 
     let counter = 0;
@@ -595,7 +604,7 @@ interface IGeneticTrackAppState {
     sequencedSampleKeysByGene: any;
     sequencedPatientKeysByGene: any;
     selectedMolecularProfiles: MolecularProfile[];
-    expansionIndexMap: ObservableMap<number[]>;
+    expansionIndexMap: ObservableMap<string, number[]>;
 }
 
 function isAltered(d: GeneticTrackDatum) {
@@ -842,8 +851,9 @@ export function makeClinicalTracksMobxPromise(
                 oncoprint.props.store.clinicalAttributeIdToClinicalAttribute
                     .isComplete
             ) {
-                const attributes = oncoprint.selectedClinicalAttributeIds
-                    .keys()
+                const attributes = Array.from(
+                    oncoprint.selectedClinicalAttributeIds.keys()
+                )
                     .map(attrId => {
                         return oncoprint.props.store
                             .clinicalAttributeIdToClinicalAttribute.result![
@@ -858,11 +868,12 @@ export function makeClinicalTracksMobxPromise(
             return ret;
         },
         invoke: async () => {
-            if (oncoprint.selectedClinicalAttributeIds.keys().length === 0) {
+            if (oncoprint.selectedClinicalAttributeIds.size === 0) {
                 return [];
             }
-            const attributes = oncoprint.selectedClinicalAttributeIds
-                .keys()
+            const attributes = Array.from(
+                oncoprint.selectedClinicalAttributeIds.keys()
+            )
                 .map(attrId => {
                     return oncoprint.props.store
                         .clinicalAttributeIdToClinicalAttribute.result![attrId];
@@ -1110,10 +1121,11 @@ export function makeGenericAssayProfileHeatmapTracksMobxPromise(
                     );
                     return _.keys(entry.entities).map(entityId => {
                         const entity = genericAssayEntitiesByEntityId[entityId];
-                        const entityName =
-                            'NAME' in entity.genericEntityMetaProperties
-                                ? entity.genericEntityMetaProperties['NAME']
-                                : entityId;
+                        const entityName = getGenericAssayMetaPropertyOrDefault(
+                            entity,
+                            COMMON_GENERIC_ASSAY_PROPERTY.NAME,
+                            entityId
+                        );
                         const description =
                             ('DESCRIPTION' in entity.genericEntityMetaProperties
                                 ? `${entityName} (${entity.genericEntityMetaProperties['DESCRIPTION']})`
@@ -1260,9 +1272,9 @@ export function makeGenesetHeatmapExpansionsMobxPromise(
                 entrezGeneId: number;
                 molecularProfileId: string;
             }[] = _.flatten(
-                expansionsByGenesetTrack
-                    .values()
-                    .map(mobxArray => mobxArray.slice())
+                Array.from(expansionsByGenesetTrack.values()).map(mobxArray =>
+                    mobxArray.slice()
+                )
             ).map(({ entrezGeneId, molecularProfileId }) => ({
                 entrezGeneId,
                 molecularProfileId,
@@ -1272,7 +1284,7 @@ export function makeGenesetHeatmapExpansionsMobxPromise(
             const tracksByGenesetTrack: {
                 [genesetTrackKey: string]: IHeatmapTrackSpec[];
             } = {};
-            expansionsByGenesetTrack.entries().forEach(([gsTrack, genes]) => {
+            expansionsByGenesetTrack.toJSON().forEach(([gsTrack, genes]) => {
                 tracksByGenesetTrack[gsTrack] = genes.map(
                     ({
                         entrezGeneId,

@@ -61,6 +61,8 @@ export interface IServerConfig {
     show_pathway_mapper: boolean;
     show_mutation_mapper_tool_grch38: boolean;
     show_transcript_dropdown: boolean;
+    survival_initial_x_axis_limit: number;
+    survival_show_p_q_values_in_survival_type_table: boolean;
     skin_documentation_about: string | null;
     skin_documentation_software: string | null;
     skin_documentation_baseurl: string | null;
@@ -127,4 +129,6 @@ export interface IServerConfig {
     generic_assay_display_text: string; // this has a default
     saml_logout_local: boolean;
     patient_view_use_legacy_timeline: boolean;
+    installation_map_url: string;
+    enable_request_body_gzip_compression: boolean;
 }
