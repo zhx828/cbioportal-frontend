@@ -160,3 +160,5 @@ export { default as DefaultMutationMapperDataStore } from './store/DefaultMutati
 export { default as DefaultMutationMapperFilterApplier } from './store/DefaultMutationMapperFilterApplier';
 export { default as DefaultMutationMapperStore } from './store/DefaultMutationMapperStore';
 export * from './component/oncokb/constants';
+
+export { OncoKbCardDataType } from './component/oncokb/OncoKbHelper';

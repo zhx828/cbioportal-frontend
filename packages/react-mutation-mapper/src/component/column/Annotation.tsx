@@ -30,6 +30,7 @@ import HotspotAnnotation, {
     sortValue as hotspotSortValue,
 } from './HotspotAnnotation';
 import { USE_DEFAULT_PUBLIC_INSTANCE_FOR_ONCOKB } from '../../util/DataFetcherUtils';
+import { OncoKbCardDataType } from '../oncokb/OncoKbHelper';
 
 export type AnnotationProps = {
     mutation?: Mutation;
@@ -65,6 +66,7 @@ export interface IAnnotation {
     is3dHotspot: boolean;
     hotspotStatus: 'pending' | 'error' | 'complete';
     oncoKbIndicator?: IndicatorQueryResp;
+    oncoKbAvailableDataTypes?: Set<OncoKbCardDataType>;
     oncoKbStatus: 'pending' | 'error' | 'complete';
     oncoKbGeneExist: boolean;
     isOncoKbCancerGene: boolean;
@@ -191,6 +193,7 @@ export function getAnnotationData(
         } else if (oncoKbGeneExist) {
             // actually, oncoKbData.result shouldn't be an instance of Error in this case (we already check it above),
             // but we need to check it again in order to avoid TS errors/warnings
+            let oncoKbAvailableDataTypes: Set<OncoKbCardDataType> | undefined;
             if (
                 oncoKbData &&
                 oncoKbData.result &&
@@ -203,12 +206,14 @@ export function getAnnotationData(
                     resolveTumorType,
                     resolveEntrezGeneId
                 );
+                oncoKbAvailableDataTypes = oncoKbData.result.availableDataTypes;
             }
 
             value = {
                 ...value,
                 oncoKbStatus: oncoKbData ? oncoKbData.status : 'pending',
                 oncoKbIndicator,
+                oncoKbAvailableDataTypes,
             };
         } else {
             value = {
@@ -261,6 +266,7 @@ export function GenericAnnotation(props: GenericAnnotationProps): JSX.Element {
                     isCancerGene={annotation.isOncoKbCancerGene}
                     status={annotation.oncoKbStatus}
                     indicator={annotation.oncoKbIndicator}
+                    availableDataTypes={annotation.oncoKbAvailableDataTypes}
                     pubMedCache={pubMedCache}
                     userEmailAddress={userEmailAddress}
                 />

@@ -11,12 +11,7 @@ export const BiologicalContent: React.FunctionComponent<{
     pmidData: ICache;
 }> = props => {
     return (
-        <If
-            condition={
-                props.biologicalSummary !== undefined &&
-                props.biologicalSummary.length > 0
-            }
-        >
+        <If condition={!!props.biologicalSummary}>
             <Then>
                 <SummaryWithRefs
                     content={props.biologicalSummary}

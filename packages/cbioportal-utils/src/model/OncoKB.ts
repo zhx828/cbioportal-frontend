@@ -1,4 +1,5 @@
 import { IndicatorQueryResp } from 'oncokb-ts-api-client';
+import { OncoKbCardDataType } from 'react-mutation-mapper';
 
 export type Query = {
     id: string;
@@ -9,6 +10,7 @@ export type Query = {
 
 export interface IOncoKbData {
     indicatorMap: { [id: string]: IndicatorQueryResp } | null;
+    availableDataTypes?: Set<OncoKbCardDataType>;
 }
 
 export enum EvidenceType {

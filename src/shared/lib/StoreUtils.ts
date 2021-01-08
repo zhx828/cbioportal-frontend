@@ -4,6 +4,7 @@ import {
     fetchVariantAnnotationsByMutation as fetchDefaultVariantAnnotationsByMutation,
     fetchVariantAnnotationsIndexedByGenomicLocation as fetchDefaultVariantAnnotationsIndexedByGenomicLocation,
     OtherBiomarkersQueryType,
+    OncoKbCardDataType,
 } from 'react-mutation-mapper';
 import {
     CancerStudy,
@@ -66,6 +67,7 @@ import {
     CLINICAL_ATTRIBUTE_ID_ENUM,
     MOLECULAR_PROFILE_MUTATIONS_SUFFIX,
     MOLECULAR_PROFILE_UNCALLED_MUTATIONS_SUFFIX,
+    ONCOKB_LEVEL_TYPE_ENUM,
 } from 'shared/constants';
 import {
     AlterationTypeConstants,
@@ -900,10 +902,33 @@ export async function queryOncoKbData(
                   body: structuralQueryVariants,
               });
 
+    const indicatorMapResult = generateIdToIndicatorMap(
+        mutationQueryResult.concat(structuralVariantQueryResult)
+    );
+
+    const availableDataTypes = new Set<OncoKbCardDataType>();
+    for (const key in indicatorMapResult) {
+        if (indicatorMapResult[key].highestSensitiveLevel !== null) {
+            availableDataTypes.add(OncoKbCardDataType.TXS);
+        }
+        if (indicatorMapResult[key].highestResistanceLevel !== null) {
+            availableDataTypes.add(OncoKbCardDataType.TXR);
+        }
+        if (
+            indicatorMapResult[key].highestPrognosticImplicationLevel !== null
+        ) {
+            availableDataTypes.add(OncoKbCardDataType.PX);
+        }
+        if (
+            indicatorMapResult[key].highestDiagnosticImplicationLevel !== null
+        ) {
+            availableDataTypes.add(OncoKbCardDataType.DX);
+        }
+    }
+
     const oncoKbData: IOncoKbData = {
-        indicatorMap: generateIdToIndicatorMap(
-            mutationQueryResult.concat(structuralVariantQueryResult)
-        ),
+        indicatorMap: indicatorMapResult,
+        availableDataTypes: availableDataTypes,
     };
 
     return oncoKbData;

@@ -26,6 +26,7 @@ import { OncoKbCardDataType } from './OncoKbHelper';
 export interface IOncoKbProps {
     status: 'pending' | 'error' | 'complete';
     indicator?: IndicatorQueryResp;
+    availableDataTypes?: Set<OncoKbCardDataType>;
     pubMedCache?: MobxCache;
     usingPublicOncoKbInstance: boolean;
     isCancerGene: boolean;
@@ -128,6 +129,12 @@ export default class OncoKB extends React.Component<IOncoKbProps, {}> {
     }
 
     private getAnnotationIcon(type: OncoKbCardDataType) {
+        if (
+            type !== OncoKbCardDataType.BIOLOGICAL &&
+            !this.props.availableDataTypes?.has(type)
+        ) {
+            return null;
+        }
         let highestLevel = '';
         if (this.props.indicator) {
             switch (type) {
