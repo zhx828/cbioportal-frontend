@@ -16184,7 +16184,7 @@ oncokb-styles@~0.2.0-alpha.5:
   version "0.2.0-alpha.5"
   resolved "https://registry.yarnpkg.com/oncokb-styles/-/oncokb-styles-0.2.0-alpha.5.tgz#5d5d516f4d20716046b10b9c630d927f952f9643"
   integrity sha512-jsYCL+jrpHsW9Q2Wm+wL8wpi2S1vRVi25tEsNl58wo83xz8ULJQTNuW/ezk7wUG0qrG0jyPSjtBgF6IuOlI2SA==
-
+  
 oncoprintjs@4.2.4:
   version "4.2.4"
   resolved "https://registry.yarnpkg.com/oncoprintjs/-/oncoprintjs-4.2.4.tgz#ddfb3704b2a09a32585f3895622a5f5d3a6557aa"
@@ -16747,9 +16747,9 @@ pathval@^1.1.0:
   resolved "https://registry.yarnpkg.com/pathval/-/pathval-1.1.0.tgz#b942e6d4bde653005ef6b71361def8727d0645e0"
   integrity sha1-uULm1L3mUwBe9rcTYd74cn0GReA=
 
-"pathway-mapper@github:iVis-at-Bilkent/pathway-mapper#dbf72dac455b0df75fc097cd59fd6f2cf0359b23":
+"pathway-mapper@github:iVis-at-Bilkent/pathway-mapper#921401e3a725fb4bb03bfde3d22c4d6238c6f2dc":
   version "2.0.3"
-  resolved "https://codeload.github.com/iVis-at-Bilkent/pathway-mapper/tar.gz/dbf72dac455b0df75fc097cd59fd6f2cf0359b23"
+  resolved "https://codeload.github.com/iVis-at-Bilkent/pathway-mapper/tar.gz/921401e3a725fb4bb03bfde3d22c4d6238c6f2dc"
   dependencies:
     "@datastructures-js/max-heap" "^2.0.0"
     autobind-decorator "^2.4.0"
@@ -16768,6 +16768,7 @@ pathval@^1.1.0:
     file-saver "^2.0.2"
     jquery-ui-dist "^1.12.1"
     konva "^1.6.3"
+    oncoprintjs "4.2.3"
     react-loader-spinner "^2.3.0"
     react-scrollbar "^0.5.6"
     react-table "^6.10.0"
@@ -18296,6 +18297,15 @@ query-string@^5.0.1:
     object-assign "^4.1.0"
     strict-uri-encode "^1.0.0"
 
+query-string@^6.13.6:
+  version "6.13.6"
+  resolved "https://registry.yarnpkg.com/query-string/-/query-string-6.13.6.tgz#e5ac7c74f2a5da43fbca0b883b4f0bafba439966"
+  integrity sha512-/WWZ7d9na6s2wMEGdVCVgKWE9Rt7nYyNIf7k8xmHXcesPMlEzicWo3lbYwHyA4wBktI2KrXxxZeACLbE84hvSQ==
+  dependencies:
+    decode-uri-component "^0.2.0"
+    split-on-first "^1.0.0"
+    strict-uri-encode "^2.0.0"
+
 querystring-browser@^1.0.4:
   version "1.0.4"
   resolved "https://registry.yarnpkg.com/querystring-browser/-/querystring-browser-1.0.4.tgz#f2e35881840a819bc7b1bf597faf0979e6622dc6"
@@ -19049,7 +19059,7 @@ react-text-truncate@^0.9.0:
   dependencies:
     prop-types "^15.5.7"
 
-react-toastify@^5.3.1, react-toastify@^5.3.2:
+react-toastify@^5.3.1:
   version "5.5.0"
   resolved "https://registry.yarnpkg.com/react-toastify/-/react-toastify-5.5.0.tgz#f55de44f6b5e3ce3b13b69e5bb4427f2c9404822"
   integrity sha512-jsVme7jALIFGRyQsri/g4YTsRuaaGI70T6/ikjwZMB4mwTZaCWqj5NqxhGrRStKlJc5npXKKvKeqTiRGQl78LQ==
@@ -21311,6 +21321,11 @@ spdy@^4.0.0:
     select-hose "^2.0.0"
     spdy-transport "^3.0.0"
 
+split-on-first@^1.0.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/split-on-first/-/split-on-first-1.1.0.tgz#f610afeee3b12bce1d0c30425e76398b78249a5f"
+  integrity sha512-43ZssAJaMusuKWL8sKUBQXHWOpq8d6CfN/u1p4gUzfJkM05C8rxTmYrkIPTXapZpORA6LkkzcUulJ8FqA7Uudw==
+
 split-polygon@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/split-polygon/-/split-polygon-1.0.0.tgz#0eacc8a136a76b12a3d95256ea7da45db0c2d247"
@@ -21545,6 +21560,11 @@ strict-uri-encode@^1.0.0:
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/strict-uri-encode/-/strict-uri-encode-1.1.0.tgz#279b225df1d582b1f54e65addd4352e18faa0713"
   integrity sha1-J5siXfHVgrH1TmWt3UNS4Y+qBxM=
+
+strict-uri-encode@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/strict-uri-encode/-/strict-uri-encode-2.0.0.tgz#b9c7330c7042862f6b142dc274bbcc5866ce3546"
+  integrity sha1-ucczDHBChi9rFC3CdLvMWGbONUY=
 
 string-hash@^1.1.0, string-hash@^1.1.1:
   version "1.1.3"

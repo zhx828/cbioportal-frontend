@@ -9,7 +9,7 @@ import { observable, toJS, makeObservable } from 'mobx';
 import { StudyViewPageStore } from 'pages/studyView/StudyViewPageStore';
 import { DataFilterValue, GenomicDataBin } from 'cbioportal-ts-api-client';
 import LoadingIndicator from 'shared/components/loadingIndicator/LoadingIndicator';
-import ReactGridLayout, { WidthProvider, Layout } from 'react-grid-layout';
+import ReactGridLayout, { Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { observer } from 'mobx-react';
@@ -36,12 +36,11 @@ import {
     GenericAssayDataBin,
 } from 'cbioportal-ts-api-client/dist/generated/CBioPortalAPIInternal';
 import DelayedRender from 'shared/components/DelayedRender';
+import { getRemoteDataGroupStatus } from 'cbioportal-utils';
 
 export interface IStudySummaryTabProps {
     store: StudyViewPageStore;
 }
-
-const ResizingReactGridLayout = WidthProvider(ReactGridLayout);
 
 // making this an observer (mobx-react) causes this component to re-render any time
 // there is a change to any observable value which is referenced in its render method.
@@ -143,15 +142,18 @@ export class StudySummaryTab extends React.Component<
         switch (this.store.chartsType.get(chartMeta.uniqueKey)) {
             case ChartTypeEnum.PIE_CHART: {
                 //if the chart is one of the custom charts then get the appropriate promise
-                if (this.store.isCustomChart(chartMeta.uniqueKey)) {
-                    props.filters = this.store.getCustomChartFilters(
-                        props.chartMeta!.uniqueKey
-                    );
+                if (
+                    this.store.isUserDefinedCustomDataChart(chartMeta.uniqueKey)
+                ) {
+                    props.filters = this.store
+                        .getCustomDataFiltersByUniqueKey(chartMeta.uniqueKey)
+                        .map(
+                            clinicalDataFilterValue =>
+                                clinicalDataFilterValue.value
+                        );
                     props.onValueSelection = this.handlers.setCustomChartFilters;
                     props.onResetSelection = this.handlers.setCustomChartFilters;
-                    props.promise = this.store.getCustomChartDataCount(
-                        chartMeta
-                    );
+                    props.promise = this.store.getCustomDataCount(chartMeta);
                 } else {
                     props.promise = this.store.getClinicalDataCount(chartMeta);
                     props.filters = this.store
@@ -222,15 +224,15 @@ export class StudySummaryTab extends React.Component<
                 break;
             }
             case ChartTypeEnum.TABLE: {
-                if (this.store.isCustomChart(chartMeta.uniqueKey)) {
-                    props.filters = this.store.getCustomChartFilters(
+                if (
+                    this.store.isUserDefinedCustomDataChart(chartMeta.uniqueKey)
+                ) {
+                    props.filters = this.store.getPreDefinedCustomChartFilters(
                         props.chartMeta!.uniqueKey
                     );
                     props.onValueSelection = this.handlers.setCustomChartFilters;
                     props.onResetSelection = this.handlers.setCustomChartFilters;
-                    props.promise = this.store.getCustomChartDataCount(
-                        chartMeta
-                    );
+                    props.promise = this.store.getCustomDataCount(chartMeta);
                 } else {
                     props.filters = this.store
                         .getClinicalDataFiltersByUniqueKey(chartMeta.uniqueKey)
@@ -434,6 +436,24 @@ export class StudySummaryTab extends React.Component<
 
     @autobind
     getProgressItems(elapsedSecs: number): IProgressIndicatorItem[] {
+        const clinicalDataPromises = [
+            this.store.initialVisibleAttributesClinicalDataBinCountData,
+            this.store.initialVisibleAttributesClinicalDataCountData,
+        ];
+
+        const sampleDataPromises = [
+            this.store.caseListSampleCounts,
+            this.store.selectedSamples,
+        ];
+
+        // do not display "this can take several seconds" if the corresponding data group has already been loaded
+        const isClinicalDataTakingLong =
+            elapsedSecs > 2 &&
+            getRemoteDataGroupStatus(...clinicalDataPromises) === 'pending';
+        const isSampleDataTakingLong =
+            elapsedSecs > 2 &&
+            getRemoteDataGroupStatus(...sampleDataPromises) === 'pending';
+
         return [
             {
                 label: 'Loading meta information',
@@ -446,11 +466,18 @@ export class StudySummaryTab extends React.Component<
             {
                 label:
                     'Loading clinical data' +
-                    (elapsedSecs > 2 ? ' - this can take several seconds' : ''),
-                promises: [
-                    this.store.initialVisibleAttributesClinicalDataBinCountData,
-                    this.store.initialVisibleAttributesClinicalDataCountData,
-                ],
+                    (isClinicalDataTakingLong
+                        ? ' - this can take several seconds'
+                        : ''),
+                promises: clinicalDataPromises,
+            },
+            {
+                label:
+                    'Loading sample data' +
+                    (isSampleDataTakingLong
+                        ? ' - this can take several seconds'
+                        : ''),
+                promises: sampleDataPromises,
             },
             {
                 label: 'Rendering',
@@ -546,46 +573,51 @@ export class StudySummaryTab extends React.Component<
                     </div>
                 )}
 
-                {!this.store.loadingInitialDataForSummaryTab && (
-                    <div data-test="summary-tab-content">
-                        <div className={styles.studyViewFlexContainer}>
-                            {this.store.defaultVisibleAttributes.isComplete && (
-                                <ReactGridLayout
-                                    className="layout"
-                                    style={{
-                                        width: this.store.containerWidth,
-                                    }}
-                                    width={this.store.containerWidth}
-                                    cols={
-                                        this.store.studyViewPageLayoutProps.cols
-                                    }
-                                    rowHeight={
-                                        this.store.studyViewPageLayoutProps.grid
-                                            .h
-                                    }
-                                    layout={
-                                        this.store.studyViewPageLayoutProps
-                                            .layout
-                                    }
-                                    margin={[
-                                        STUDY_VIEW_CONFIG.layout.gridMargin.x,
-                                        STUDY_VIEW_CONFIG.layout.gridMargin.y,
-                                    ]}
-                                    useCSSTransforms={false}
-                                    draggableHandle={`.${chartHeaderStyles.draggable}`}
-                                    onLayoutChange={
-                                        this.handlers.onLayoutChange
-                                    }
-                                    onResizeStop={this.onResize}
-                                >
-                                    {this.store.visibleAttributes.map(
-                                        this.renderAttributeChart
-                                    )}
-                                </ReactGridLayout>
-                            )}
+                {!this.store.loadingInitialDataForSummaryTab &&
+                    !this.store.blockLoading && (
+                        <div data-test="summary-tab-content">
+                            <div className={styles.studyViewFlexContainer}>
+                                {this.store.defaultVisibleAttributes
+                                    .isComplete && (
+                                    <ReactGridLayout
+                                        className="layout"
+                                        style={{
+                                            width: this.store.containerWidth,
+                                        }}
+                                        width={this.store.containerWidth}
+                                        cols={
+                                            this.store.studyViewPageLayoutProps
+                                                .cols
+                                        }
+                                        rowHeight={
+                                            this.store.studyViewPageLayoutProps
+                                                .grid.h
+                                        }
+                                        layout={
+                                            this.store.studyViewPageLayoutProps
+                                                .layout
+                                        }
+                                        margin={[
+                                            STUDY_VIEW_CONFIG.layout.gridMargin
+                                                .x,
+                                            STUDY_VIEW_CONFIG.layout.gridMargin
+                                                .y,
+                                        ]}
+                                        useCSSTransforms={false}
+                                        draggableHandle={`.${chartHeaderStyles.draggable}`}
+                                        onLayoutChange={
+                                            this.handlers.onLayoutChange
+                                        }
+                                        onResizeStop={this.onResize}
+                                    >
+                                        {this.store.visibleAttributes.map(
+                                            this.renderAttributeChart
+                                        )}
+                                    </ReactGridLayout>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
                 {this.props.store.selectedSamples.isComplete &&
                     this.props.store.selectedSamples.result.length === 0 && (
                         <div className={styles.studyViewNoSamples}>
