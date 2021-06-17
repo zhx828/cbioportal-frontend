@@ -55,6 +55,27 @@ const DIAGNOSTIC_LEVEL_SCORE: { [level: string]: number } = {
     Dx2: 2,
     Dx1: 3,
 };
+export enum ONCOGENICITY {
+    ONCOGENIC = 'Oncogenic',
+    LIKELY_ONCOGENIC = 'Likely Oncogenic',
+    PREDICTED_ONCOGENIC = 'Predicted Oncogenic',
+    RESISTANCE = 'Resistance',
+    LIKELY_NEUTRAL = 'Likely Neutral',
+    UNKNOWN = 'Unknown',
+    INCONCLUSIVE = 'Inconclusive',
+    EMPTY = '',
+}
+export enum DIAGNOSTIC_LEVEL {
+    Dx1 = 'LEVEL_Dx1',
+    Dx2 = 'LEVEL_Dx2',
+    Dx3 = 'LEVEL_Dx3',
+}
+
+export enum PROGNOSTIC_LEVEL {
+    Px1 = 'LEVEL_Px1',
+    Px2 = 'LEVEL_Px2',
+    Px3 = 'LEVEL_Px3',
+}
 
 // prognostic level <-> score
 // (used for sorting purposes)

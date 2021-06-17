@@ -1,15 +1,19 @@
 import React from 'react';
 import { OncoKbCardDataType } from 'cbioportal-utils';
-import { IndicatorQueryResp } from 'oncokb-ts-api-client';
+import { IndicatorQueryResp, LevelOfEvidence } from 'oncokb-ts-api-client';
 import { DefaultTooltip } from 'cbioportal-frontend-commons';
 
 import {
+    DIAGNOSTIC_LEVEL,
     levelIconClassNames,
     normalizeLevel,
+    ONCOGENICITY,
     oncogenicityIconClassNames,
+    PROGNOSTIC_LEVEL,
 } from '../../util/OncoKbUtils';
 
 import annotationStyles from '../column/annotation.module.scss';
+import OncoKbCompactIcon from './OncoKbCompactIcon';
 
 export function hideArrow(tooltipEl: any) {
     const arrowEl = tooltipEl.querySelector('.rc-tooltip-arrow');
@@ -59,17 +63,24 @@ export const AnnotationIcon: React.FunctionComponent<{
                 onPopupAlign={hideArrow}
                 destroyTooltipOnHide={true}
             >
-                <i
-                    className={
-                        props.type === OncoKbCardDataType.BIOLOGICAL
-                            ? oncogenicityIconClassNames(
-                                  props.indicator?.oncogenic || ''
-                              )
-                            : levelIconClassNames(
-                                  normalizeLevel(highestLevel) || ''
-                              )
+                <OncoKbCompactIcon
+                    oncogenicity={props.indicator?.oncogenic as ONCOGENICITY}
+                    txSLevel={
+                        props.indicator
+                            ?.highestSensitiveLevel as LevelOfEvidence
                     }
-                    data-test="oncogenic-icon-image"
+                    txRLevel={
+                        props.indicator
+                            ?.highestResistanceLevel as LevelOfEvidence
+                    }
+                    dxLevel={
+                        props.indicator
+                            ?.highestDiagnosticImplicationLevel as DIAGNOSTIC_LEVEL
+                    }
+                    pxLevel={
+                        props.indicator
+                            ?.highestPrognosticImplicationLevel as PROGNOSTIC_LEVEL
+                    }
                 />
             </DefaultTooltip>
         </span>

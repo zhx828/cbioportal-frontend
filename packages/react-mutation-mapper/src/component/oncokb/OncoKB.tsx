@@ -99,28 +99,6 @@ export default class OncoKB extends React.Component<IOncoKbProps, {}> {
                         indicator={this.props.indicator}
                         availableDataTypes={this.props.availableDataTypes}
                     />
-                    {!this.props.usingPublicOncoKbInstance &&
-                        this.props.indicator && (
-                            <>
-                                {[
-                                    OncoKbCardDataType.TXS,
-                                    OncoKbCardDataType.TXR,
-                                    OncoKbCardDataType.DX,
-                                    OncoKbCardDataType.PX,
-                                ].map(dataType => (
-                                    <AnnotationIcon
-                                        type={dataType}
-                                        tooltipOverlay={this.tooltipContent(
-                                            dataType
-                                        )}
-                                        indicator={this.props.indicator}
-                                        availableDataTypes={
-                                            this.props.availableDataTypes
-                                        }
-                                    />
-                                ))}
-                            </>
-                        )}
                 </>
             );
             if (!this.props.disableFeedback && this.showFeedback) {
