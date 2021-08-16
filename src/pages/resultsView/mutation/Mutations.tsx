@@ -204,9 +204,13 @@ export default class Mutations extends React.Component<
                                 .ensemblLink,
                             // only disable oncokb and hotspots track if
                             // non-canonical transcript is selected
-                            show_oncokb: mutationMapperStore.isCanonicalTranscript
-                                ? AppConfig.serverConfig.show_oncokb
+                            show_civic: mutationMapperStore.isCanonicalTranscript
+                                ? AppConfig.serverConfig.show_civic
                                 : false,
+                            mycancergenome_show: mutationMapperStore.isCanonicalTranscript
+                                ? AppConfig.serverConfig.mycancergenome_show
+                                : false,
+                            show_oncokb: mutationMapperStore.showOncoKB,
                             show_hotspot: mutationMapperStore.isCanonicalTranscript
                                 ? AppConfig.serverConfig.show_hotspot
                                 : false,

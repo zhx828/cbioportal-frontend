@@ -235,7 +235,14 @@ export default class CopyNumberTableWrapper extends React.Component<
         columns.push({
             name: 'Annotation',
             headerRender: (name: string) =>
-                AnnotationColumnFormatter.headerRender(name, this.oncokbWidth),
+                AnnotationColumnFormatter.headerRender(
+                    name,
+                    this.oncokbWidth,
+                    false,
+                    this.props.enableOncoKb as boolean,
+                    false,
+                    this.props.enableCivic as boolean
+                ),
             render: (d: DiscreteCopyNumberData[]) => (
                 <span id="copy-number-annotation">
                     {AnnotationColumnFormatter.renderFunction(d, {

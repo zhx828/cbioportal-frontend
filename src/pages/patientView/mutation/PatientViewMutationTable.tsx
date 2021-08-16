@@ -270,7 +270,18 @@ export default class PatientViewMutationTable extends MutationTable<
         this._columns[MutationTableColumnType.ANNOTATION].headerRender = (
             name: string
         ) => {
-            return <AnnotationHeader name={name} width={this.oncokbWidth} />;
+            return (
+                <AnnotationHeader
+                    name={name}
+                    width={this.oncokbWidth}
+                    enableHotspot={this.props.enableHotspot as boolean}
+                    enableOncoKb={this.props.enableOncoKb as boolean}
+                    enableMyCancerGenome={
+                        this.props.enableMyCancerGenome as boolean
+                    }
+                    enableCivic={this.props.enableCivic as boolean}
+                />
+            );
         };
 
         // order columns

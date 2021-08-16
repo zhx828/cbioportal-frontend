@@ -227,7 +227,11 @@ export default class PatientViewStructuralVariantTable extends React.Component<
                 headerRender: (name: string) =>
                     AnnotationColumnFormatter.headerRender(
                         name,
-                        this.oncokbWidth
+                        this.oncokbWidth,
+                        false,
+                        AppConfig.serverConfig.show_oncokb as boolean,
+                        false,
+                        false
                     ),
                 render: (d: StructuralVariant[]) => (
                     <span id="sv-annotation">

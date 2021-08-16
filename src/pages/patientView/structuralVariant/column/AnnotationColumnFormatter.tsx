@@ -205,8 +205,24 @@ export default class AnnotationColumnFormatter {
         ]);
     }
 
-    public static headerRender(name: string, width: number) {
-        return <AnnotationHeader name={name} width={width} />;
+    public static headerRender(
+        name: string,
+        width: number,
+        enableHotspot: boolean,
+        enableOncoKb: boolean,
+        enableMyCancerGenome: boolean,
+        enableCivic: boolean
+    ) {
+        return (
+            <AnnotationHeader
+                name={name}
+                width={width}
+                enableHotspot={enableHotspot}
+                enableOncoKb={enableOncoKb}
+                enableMyCancerGenome={enableMyCancerGenome}
+                enableCivic={enableCivic}
+            />
+        );
     }
 
     public static renderFunction(

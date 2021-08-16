@@ -826,7 +826,14 @@ export default class MutationTable<
         this._columns[MutationTableColumnType.ANNOTATION] = {
             name: MutationTableColumnType.ANNOTATION,
             headerRender: (name: string) =>
-                AnnotationColumnFormatter.headerRender(name, this.oncokbWidth),
+                AnnotationColumnFormatter.headerRender(
+                    name,
+                    this.oncokbWidth,
+                    this.props.enableHotspot as boolean,
+                    this.props.enableOncoKb as boolean,
+                    this.props.enableMyCancerGenome as boolean,
+                    this.props.enableCivic as boolean
+                ),
             render: (d: Mutation[]) => (
                 <span id="mutation-annotation">
                     {AnnotationColumnFormatter.renderFunction(d, {

@@ -43,6 +43,8 @@ import DiscreteCNAColumnFormatter from 'shared/components/mutationTable/column/D
 import CancerTypeColumnFormatter from 'shared/components/mutationTable/column/CancerTypeColumnFormatter';
 import HgvscColumnFormatter from 'shared/components/mutationTable/column/HgvscColumnFormatter';
 import ClinicalAttributeColumnFormatter from 'shared/components/mutationTable/column/ClinicalAttributeColumnFormatter';
+import * as _ from 'lodash';
+import AppConfig from 'appConfig';
 
 export default class ResultsViewMutationMapperStore extends MutationMapperStore {
     constructor(
@@ -161,6 +163,35 @@ export default class ResultsViewMutationMapperStore extends MutationMapperStore 
         }
         // return true if transcript dropdown is disabled
         return true;
+    }
+
+    @computed
+    get matchedOncokbGene() {
+        if (this.oncoKbCancerGenes.result) {
+            return _.find(
+                this.oncoKbCancerGenes.result,
+                (gene: CancerGene) =>
+                    gene.entrezGeneId === this.gene.entrezGeneId
+            );
+        }
+        return undefined;
+    }
+
+    @computed
+    get showOncoKB(): boolean {
+        let activeTranscriptIsTheSameInOncoKB = true;
+        if (this.canonicalTranscript.result && this.activeTranscript.result) {
+            if (this.matchedOncokbGene) {
+                activeTranscriptIsTheSameInOncoKB =
+                    this.activeTranscript.result ===
+                    this.matchedOncokbGene.grch37Isoform;
+            }
+        }
+        if (activeTranscriptIsTheSameInOncoKB) {
+            return AppConfig.serverConfig.show_oncokb;
+        } else {
+            return activeTranscriptIsTheSameInOncoKB;
+        }
     }
 
     @computed get numericalFilterColumns() {

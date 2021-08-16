@@ -180,7 +180,8 @@ export default class ResultsViewMutationTable extends MutationTable<
 
         // disable annotation column if non canonical transcript is selected
         this._columns[MutationTableColumnType.ANNOTATION].shouldExclude = () =>
-            this.props.isCanonicalTranscript === false;
+            this.props.isCanonicalTranscript === false &&
+            !this.props.enableOncoKb;
 
         // order columns
         this._columns[MutationTableColumnType.STUDY].order = 0;

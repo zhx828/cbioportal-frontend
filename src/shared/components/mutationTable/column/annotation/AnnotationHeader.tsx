@@ -323,12 +323,16 @@ export const AnnotationHeaderTooltipCard: React.FunctionComponent<{
 const AnnotationHeader: React.FunctionComponent<{
     name: string;
     width: number;
+    enableOncoKb: boolean;
+    enableMyCancerGenome: boolean;
+    enableHotspot: boolean;
+    enableCivic: boolean;
 }> = props => {
     return (
         <span>
             {props.name}
             <br />
-            {AppConfig.serverConfig.show_oncokb && (
+            {props.enableOncoKb && (
                 <DefaultTooltip
                     placement="top"
                     overlay={
@@ -354,7 +358,7 @@ const AnnotationHeader: React.FunctionComponent<{
                     />
                 </DefaultTooltip>
             )}
-            {AppConfig.serverConfig.show_civic && (
+            {props.enableCivic && (
                 <DefaultTooltip
                     placement="top"
                     overlay={
@@ -377,7 +381,7 @@ const AnnotationHeader: React.FunctionComponent<{
                     />
                 </DefaultTooltip>
             )}
-            {AppConfig.serverConfig.mycancergenome_show && (
+            {props.enableMyCancerGenome && (
                 <DefaultTooltip
                     placement="top"
                     overlay={
@@ -402,7 +406,7 @@ const AnnotationHeader: React.FunctionComponent<{
                     />
                 </DefaultTooltip>
             )}
-            {AppConfig.serverConfig.show_hotspot && (
+            {props.enableHotspot && (
                 <DefaultTooltip
                     placement="top"
                     overlay={
