@@ -1,5 +1,6 @@
 export enum DataFilterType {
     ONCOKB = 'oncokb',
+    INFRAME_MAP = 'inframeMap',
     HOTSPOT = 'hotspot',
     POSITION = 'position',
     MUTATION = 'mutation',

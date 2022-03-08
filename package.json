@@ -34,7 +34,7 @@
     "fetchAPI": "./scripts/env_vars.sh && eval \"$(./scripts/env_vars.sh)\" && curl -k ${CBIOPORTAL_URL}/api/api-docs | json | grep -v basePath | grep -v termsOfService | grep -v host > packages/cbioportal-ts-api-client/src/generated/CBioPortalAPI-docs.json && curl -k ${CBIOPORTAL_URL}/api/api-docs?group=internal | json | grep -v host | grep -v basePath | grep -v termsOfService > packages/cbioportal-ts-api-client/src/generated/CBioPortalAPIInternal-docs.json",
     "buildAPI": "node scripts/generate-api.js packages/cbioportal-ts-api-client/src/generated CBioPortalAPI CBioPortalAPIInternal",
     "updateOncoKbAPI": "yarn run fetchOncoKbAPI && yarn run buildOncoKbAPI",
-    "fetchOncoKbAPI": "curl -k https://www.oncokb.org/api/v1/v2/api-docs?group=Public%20APIs | json | grep -v basePath | grep -v termsOfService | grep -v host > packages/oncokb-ts-api-client/src/generated/OncoKbAPI-docs.json",
+    "fetchOncoKbAPI": "curl -k http://localhost:8080/web_war/api/v1/v2/api-docs?group=Public%20APIs | json | grep -v basePath | grep -v termsOfService | grep -v host > packages/oncokb-ts-api-client/src/generated/OncoKbAPI-docs.json",
     "buildOncoKbAPI": "node scripts/generate-api.js packages/oncokb-ts-api-client/src/generated OncoKbAPI",
     "updateG2SAPI": "yarn run fetchG2SAPI && yarn run buildG2SAPI",
     "fetchG2SAPI": "curl -k http://g2s.genomenexus.org/v2/api-docs?group=api > packages/genome-nexus-ts-api-client/src/generated/Genome2StructureAPI-docs.json",

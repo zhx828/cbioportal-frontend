@@ -18,6 +18,7 @@ import {
     VariantAnnotation,
 } from 'genome-nexus-ts-api-client';
 import { CancerGene, OncoKbAPI, OncoKBInfo } from 'oncokb-ts-api-client';
+import { Alteration, EnrichedHotspot } from 'oncokb-ts-api-client/src';
 
 export interface MutationMapperDataFetcher {
     fetchSwissProtAccession(entrezGeneId: number): Promise<any>;
@@ -65,6 +66,10 @@ export interface MutationMapperDataFetcher {
         ensemblId: string,
         client?: GenomeNexusAPIInternal
     ): Promise<Hotspot[]>;
+    fetchLocalCancerHotspotData(client?: OncoKbAPI): Promise<EnrichedHotspot[]>;
+    fetchOncokbAnnotatedAlterationsData(
+        client?: OncoKbAPI
+    ): Promise<Alteration[]>;
     fetchAggregatedHotspotsData(
         mutations: Mutation[],
         client?: GenomeNexusAPIInternal

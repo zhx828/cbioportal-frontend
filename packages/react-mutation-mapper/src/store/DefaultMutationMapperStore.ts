@@ -908,6 +908,18 @@ class DefaultMutationMapperStore<T extends Mutation>
         {}
     );
 
+    readonly localHotspotData = remoteData({
+        invoke: async () => {
+            return await this.dataFetcher.fetchLocalCancerHotspotData();
+        },
+    });
+
+    readonly oncokbAnnotatedAlterations = remoteData({
+        invoke: async () => {
+            return await this.dataFetcher.fetchOncokbAnnotatedAlterationsData();
+        },
+    });
+
     // Hotspots
     readonly hotspotData: MobxPromise<AggregatedHotspots[]> = remoteData({
         await: () => [this.mutationData],

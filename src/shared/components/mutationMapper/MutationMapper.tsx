@@ -348,6 +348,7 @@ export default class MutationMapper<
             [TrackName.PDB]: alignmentDataStatus,
             [TrackName.Exon]: 'complete',
             [TrackName.UniprotTopology]: uniprotTopologyDataStatus,
+            [TrackName.INFRAME_MAP]: hotspotDataStatus,
         };
     }
 
@@ -566,8 +567,8 @@ export default class MutationMapper<
             tracks.push(TrackName.dbPTM);
         }
         tracks.push(TrackName.Exon);
-        tracks.push(TrackName.UniprotTopology);
         tracks.push(TrackName.PDB);
+        tracks.push(TrackName.INFRAME_MAP);
 
         return tracks;
     }

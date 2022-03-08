@@ -17,6 +17,7 @@ export enum TrackName {
     UniprotPTM = 'UNIPROT_PTM',
     Exon = 'EXON',
     UniprotTopology = 'UNIPROT_TOPOLOGY',
+    INFRAME_MAP = 'INFRAME_MAP',
 }
 
 type TrackSelectorProps = {
@@ -43,10 +44,8 @@ export default class TrackSelector extends React.Component<
         tracks: [
             TrackName.CancerHotspots,
             TrackName.OncoKB,
-            TrackName.dbPTM,
-            TrackName.PDB,
             TrackName.Exon,
-            TrackName.UniprotTopology,
+            TrackName.INFRAME_MAP,
         ],
     };
 
@@ -129,6 +128,16 @@ export default class TrackSelector extends React.Component<
                     </span>
                 ),
                 value: TrackName.UniprotTopology,
+            },
+            [TrackName.INFRAME_MAP]: {
+                label: (
+                    <span>
+                        Map in-frame indel
+                        {this.isPending(TrackName.INFRAME_MAP) &&
+                            this.loaderIcon()}
+                    </span>
+                ),
+                value: TrackName.INFRAME_MAP,
             },
         };
     }

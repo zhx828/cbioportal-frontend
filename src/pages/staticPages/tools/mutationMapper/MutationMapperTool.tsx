@@ -582,6 +582,11 @@ export default class MutationMapperTool extends React.Component<
         return tabs;
     }
 
+    componentDidMount() {
+        this.handleLoadExampleGenomicCoordinates();
+        this.handleVisualize();
+    }
+
     @action.bound
     protected handleFileSelect(e: any) {
         const reader = new FileReader();

@@ -18,6 +18,7 @@ import PtmTrack from './PtmTrack';
 import './defaultTrackTooltipTable.scss';
 import { PtmAnnotationTableColumnId } from '../ptm/PtmAnnotationTable';
 import UniprotTopologyTrack from './UniprotTopologyTrack';
+import InframeMapTrack from './InframeMapTrack';
 
 type TrackPanelProps = {
     store: MutationMapperStore<Mutation>;
@@ -112,6 +113,21 @@ export default class TrackPanel extends React.Component<TrackPanelProps, {}> {
                         xOffset={this.props.geneXOffset}
                         proteinLength={this.proteinLength}
                         collapsed={this.props.collapseUniprotTopologyTrack}
+                    />
+                ) : null,
+            [TrackName.INFRAME_MAP]:
+                !this.props.trackVisibility ||
+                this.props.trackVisibility[TrackName.INFRAME_MAP] ===
+                    'visible' ? (
+                    <InframeMapTrack
+                        store={this.props.store}
+                        dataStore={this.props.store.dataStore}
+                        hotspotIndex={
+                            this.props.store.indexedHotspotData.result || {}
+                        }
+                        width={this.props.geneWidth}
+                        xOffset={this.props.geneXOffset}
+                        proteinLength={this.proteinLength}
                     />
                 ) : null,
         };

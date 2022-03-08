@@ -47,6 +47,7 @@ import {
     ONCOKB_DEFAULT_DATA,
 } from '../util/DataFetcherUtils';
 import { CanonicalMutationType } from 'cbioportal-frontend-commons';
+import { Alteration, EnrichedHotspot } from 'oncokb-ts-api-client/src';
 
 export interface MutationMapperDataFetcherConfig {
     myGeneUrlTemplate?: string;
@@ -254,6 +255,22 @@ export class DefaultMutationMapperDataFetcher
         } else {
             return Promise.resolve([]);
         }
+    }
+
+    public fetchLocalCancerHotspotData(
+        client: OncoKbAPI = this.oncoKbClient
+    ): Promise<EnrichedHotspot[]> {
+        return Promise.resolve(
+            this.oncoKbClient.utilsAllHotspotGetUsingGET_1({})
+        );
+    }
+
+    public fetchOncokbAnnotatedAlterationsData(
+        client: OncoKbAPI = this.oncoKbClient
+    ): Promise<Alteration[]> {
+        return Promise.resolve(
+            this.oncoKbClient.utilsAllAnnotatedAlterationsGetUsingGET_1({})
+        );
     }
 
     public fetchAggregatedHotspotsData(

@@ -19,10 +19,12 @@ import {
 } from 'genome-nexus-ts-api-client';
 import {
     CancerGene,
+    EnrichedHotspot,
     IndicatorQueryResp,
     OncoKBInfo,
 } from 'oncokb-ts-api-client';
 import DataStore from './DataStore';
+import { Alteration } from 'oncokb-ts-api-client/src';
 
 export interface MutationMapperStore<T extends Mutation> {
     gene: Gene;
@@ -60,6 +62,8 @@ export interface MutationMapperStore<T extends Mutation> {
     uniprotTopologyData: RemoteData<UniprotTopology[] | undefined>;
     indexedHotspotData: RemoteData<IHotspotIndex | undefined>;
     hotspotsByPosition: { [pos: number]: Hotspot[] };
+    localHotspotData: RemoteData<EnrichedHotspot[] | undefined>;
+    oncokbAnnotatedAlterations: RemoteData<Alteration[] | undefined>;
     oncoKbCancerGenes: RemoteData<CancerGene[] | Error | undefined>;
     oncoKbData: RemoteData<IOncoKbData | Error | undefined>;
     oncoKbDataByPosition: { [pos: number]: IndicatorQueryResp[] };
