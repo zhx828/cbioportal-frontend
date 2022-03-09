@@ -10,6 +10,7 @@ import Track, { TrackProps } from './Track';
 import { TrackItemSpec, TrackItemType } from './TrackItem';
 
 import hotspotImg from '../../images/cancer-hotspots.svg';
+import { Alteration } from 'oncokb-ts-api-client';
 
 type HotspotTrackProps = TrackProps & {
     store: MutationMapperStore<Mutation>;
@@ -35,7 +36,7 @@ export default class InframeMapTrack extends React.Component<
             allHotspot = allHotspot.filter(
                 hotspot =>
                     hotspot.type === 'in-frame indel' &&
-                    hotspot.hugoSymbol === 'EGFR'
+                    hotspot.hugoSymbol === this.props.store.gene.hugoGeneSymbol
             );
         }
         if (!_.isEmpty(allHotspot)) {
@@ -61,7 +62,8 @@ export default class InframeMapTrack extends React.Component<
         if (allOncokbAlterations) {
             allOncokbAlterations = allOncokbAlterations.filter(
                 variant =>
-                    variant.gene.hugoSymbol === 'EGFR' &&
+                    variant.gene.hugoSymbol ===
+                        this.props.store.gene.hugoGeneSymbol &&
                     ['inframe_deletion', 'inframe_insertion'].includes(
                         variant.consequence.term
                     )
@@ -73,20 +75,32 @@ export default class InframeMapTrack extends React.Component<
         );
     }
 
+    getAlterationSpec = (alteration: Alteration) => {
+        return {
+            startCodon: alteration.proteinStart,
+            endCodon:
+                alteration.proteinStart === alteration.proteinEnd
+                    ? undefined
+                    : alteration.proteinEnd,
+            itemType:
+                alteration.proteinStart === alteration.proteinEnd
+                    ? TrackItemType.CIRCLE
+                    : TrackItemType.RECTANGLE,
+            color: '#007FFF',
+            tooltip: (
+                <div>
+                    <div>{`${alteration.name} (${alteration.alteration})`}</div>
+                    <div>{`${alteration.proteinStart}-${alteration.proteinEnd}`}</div>
+                </div>
+            ),
+        };
+    };
+
     @computed get oncokbCuratedSpecs(): TrackItemSpec[] {
         if (!_.isEmpty(this.allOncokbAlterations)) {
-            return this.allOncokbAlterations.map(alteration => ({
-                startCodon: alteration.proteinStart,
-                endCodon: alteration.proteinEnd,
-                itemType: TrackItemType.RECTANGLE,
-                color: '#007FFF',
-                tooltip: (
-                    <div>
-                        <div>{`${alteration.name} (${alteration.alteration})`}</div>
-                        <div>{`${alteration.proteinStart}-${alteration.proteinEnd}`}</div>
-                    </div>
-                ),
-            }));
+            return this.allOncokbAlterations.map(alteration =>
+                this.getAlterationSpec(alteration)
+            );
         } else {
             return [];
         }
@@ -147,28 +161,7 @@ export default class InframeMapTrack extends React.Component<
                         xOffset={this.props.xOffset}
                         proteinLength={this.props.proteinLength}
                         trackTitle={<span>OncoKB:{alteration.name}</span>}
-                        trackItems={[
-                            {
-                                startCodon: alteration.proteinStart,
-                                endCodon:
-                                    alteration.proteinStart ===
-                                    alteration.proteinEnd
-                                        ? undefined
-                                        : alteration.proteinEnd,
-                                itemType:
-                                    alteration.proteinStart ===
-                                    alteration.proteinEnd
-                                        ? TrackItemType.CIRCLE
-                                        : TrackItemType.RECTANGLE,
-                                color: '#007FFF',
-                                tooltip: (
-                                    <div>
-                                        <div>{`${alteration.name} (${alteration.alteration})`}</div>
-                                        <div>{`${alteration.proteinStart}-${alteration.proteinEnd}`}</div>
-                                    </div>
-                                ),
-                            },
-                        ]}
+                        trackItems={[this.getAlterationSpec(alteration)]}
                         idClassPrefix={'cancer-hotspot-oncokb-inframe-'}
                     />
                 ))}
